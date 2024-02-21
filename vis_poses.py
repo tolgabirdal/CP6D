@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
-
+from tqdm import tqdm
 # Example data: n camera poses with [x, y, z, qx, qy, qz, qw]
 # Here we'll just create a dummy array for illustration purposes
 def read_poses(file):
@@ -18,10 +18,6 @@ def read_poses(file):
     poses[:, 6] = df['q4'].values
     return poses
 
-sn = 'stairs'
-camera_poses_train = read_poses('./dataset/7Scenes/train_cal_0.5/7Scenes_subset_'+sn+'_train.csv')
-camera_poses_calib = read_poses('./dataset/7Scenes/train_cal_0.5/7Scenes_subset_'+sn+'_calib.csv')
-camera_poses_test = read_poses('./dataset/7Scenes/train_cal_0.5/abs_7scenes_pose.csv_'+sn+'_test.csv_mstransformer_pred.csv')
 # Function to convert quaternion to rotation matrix
 def quaternion_to_rotation_matrix(q):
     qx, qy, qz, qw = q
@@ -33,54 +29,61 @@ def quaternion_to_rotation_matrix(q):
                   [2*(qxqz - qyqw), 2*(qyqz + qxqw), 1 - 2*(qx2 + qy2)]])
     return R
 
-fig = plt.figure(figsize=(10, 10))
-ax = fig.add_subplot(111, projection='3d')
+sns = ['heads', 'pumpkin', 'redkitchen', 'stairs']
+for sn in tqdm(sns):
+    camera_poses_train = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_train.csv_results.csv')
+    camera_poses_calib = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_cal.csv_results.csv')
+    camera_poses_test = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_test.csv_results.csv')
 
-for pose in camera_poses_train:
-    xyz = pose[:3]
-    quat = pose[3:]
-    R = quaternion_to_rotation_matrix(quat)
-    
-    # Define a simple coordinate frame
-    frame_length = 0.15
-    origins = np.array([[0, 0, 0]]).T  # Origin of the frame
-    directions = np.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]]) * frame_length  # Axis directions
-    transformed_directions = R @ directions  # Rotate the frame
-    
-    for i, color in zip(range(3), ['r', 'r', 'r']):  # XYZ -> RGB
-        ax.quiver(*xyz, *transformed_directions[:, i], color=color, length=frame_length)
 
-for pose in camera_poses_calib:
-    xyz = pose[:3]
-    quat = pose[3:]
-    R = quaternion_to_rotation_matrix(quat)
-    
-    # Define a simple coordinate frame
-    frame_length = 0.15
-    origins = np.array([[0, 0, 0]]).T  # Origin of the frame
-    directions = np.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]]) * frame_length  # Axis directions
-    transformed_directions = R @ directions  # Rotate the frame
-    
-    for i, color in zip(range(3), ['g', 'g', 'g']):  # XYZ -> RGB
-        ax.quiver(*xyz, *transformed_directions[:, i], color=color, length=frame_length)
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
 
-for pose in camera_poses_test:
-    xyz = pose[:3]
-    quat = pose[3:]
-    R = quaternion_to_rotation_matrix(quat)
-    
-    # Define a simple coordinate frame
-    frame_length = 0.15
-    origins = np.array([[0, 0, 0]]).T  # Origin of the frame
-    directions = np.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]]) * frame_length  # Axis directions
-    transformed_directions = R @ directions  # Rotate the frame
-    
-    for i, color in zip(range(3), ['b', 'b', 'b']):  # XYZ -> RGB
-        ax.quiver(*xyz, *transformed_directions[:, i], color=color, length=frame_length)
+    for pose in camera_poses_train:
+        xyz = pose[:3]
+        quat = pose[3:]
+        R = quaternion_to_rotation_matrix(quat)
+        
+        # Define a simple coordinate frame
+        frame_length = 0.15
+        origins = np.array([[0, 0, 0]]).T  # Origin of the frame
+        directions = np.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]]) * frame_length  # Axis directions
+        transformed_directions = R @ directions  # Rotate the frame
+        
+        for i, color in zip(range(3), ['r', 'r', 'r']):  # XYZ -> RGB
+            ax.quiver(*xyz, *transformed_directions[:, i], color=color, length=frame_length)
 
-# Setting the labels
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
+    for pose in camera_poses_calib:
+        xyz = pose[:3]
+        quat = pose[3:]
+        R = quaternion_to_rotation_matrix(quat)
+        
+        # Define a simple coordinate frame
+        frame_length = 0.15
+        origins = np.array([[0, 0, 0]]).T  # Origin of the frame
+        directions = np.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]]) * frame_length  # Axis directions
+        transformed_directions = R @ directions  # Rotate the frame
+        
+        for i, color in zip(range(3), ['g', 'g', 'g']):  # XYZ -> RGB
+            ax.quiver(*xyz, *transformed_directions[:, i], color=color, length=frame_length)
 
-plt.savefig('camera_poses'+sn+'.png')
+    for pose in camera_poses_test:
+        xyz = pose[:3]
+        quat = pose[3:]
+        R = quaternion_to_rotation_matrix(quat)
+        
+        # Define a simple coordinate frame
+        frame_length = 0.15
+        origins = np.array([[0, 0, 0]]).T  # Origin of the frame
+        directions = np.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]]) * frame_length  # Axis directions
+        transformed_directions = R @ directions  # Rotate the frame
+        
+        for i, color in zip(range(3), ['b', 'b', 'b']):  # XYZ -> RGB
+            ax.quiver(*xyz, *transformed_directions[:, i], color=color, length=frame_length)
+
+    # Setting the labels
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    plt.savefig('vis/camera_poses_'+sn+'.png')
