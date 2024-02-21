@@ -4,6 +4,24 @@ import pandas as pd
 from os.path import join
 import numpy as np
 
+def standardize_translation_vectors(vectors):
+    mean = np.mean(vectors, axis=0)
+    std = np.std(vectors, axis=0)
+    return (vectors - mean) / std, mean, std
+
+def read_est_poses(file_path):
+    df = pd.read_csv(file_path)
+    n = df.shape[0]
+    est_poses = np.zeros((n, 7))
+    
+    est_poses[:, 0] = df['est_t1'].values
+    est_poses[:, 1] = df['est_t2'].values
+    est_poses[:, 2] = df['est_t3'].values
+    est_poses[:, 3] = df['est_q1'].values
+    est_poses[:, 4] = df['est_q2'].values
+    est_poses[:, 5] = df['est_q3'].values
+    est_poses[:, 6] = df['est_q4'].values
+    return est_poses
 
 class CameraPoseDataset(Dataset):
     """
@@ -54,6 +72,61 @@ class CameraPoseDataset(Dataset):
             sample = {'img': img, 'pose': pose, 'scene': scene}
         else:
             sample = {'pose': pose, 'scene': scene}
+
+        return sample
+    
+class CameraPoseDatasetPred(Dataset):
+    """
+        A class representing a dataset of images and their poses
+    """
+
+    def __init__(self, dataset_path, labels_file, data_transform=None,
+                 equalize_scenes=False, load_img=True):
+        super(CameraPoseDatasetPred, self).__init__()
+        self.img_paths, self.poses, self.scenes, self.scenes_ids = read_labels_file(labels_file, dataset_path)
+        self.pred_poses = read_est_poses(labels_file)
+        scene_to_poses = {}
+        for i, scene_id in enumerate(self.scenes_ids):
+            scene_to_poses[scene_id] = self.poses[self.scenes_ids == scene_id, :]
+        self.scene_to_poses = scene_to_poses
+        self.dataset_size = self.poses.shape[0]
+        self.num_scenes = np.max(self.scenes_ids) + 1
+        self.scenes_sample_indices = [np.where(np.array(self.scenes_ids) == i)[0] for i in range(self.num_scenes)]
+        self.scene_prob_selection = [len(self.scenes_sample_indices[i])/len(self.scenes_ids)
+                                     for i in range(self.num_scenes)]
+        if self.num_scenes > 1 and equalize_scenes:
+            max_samples_in_scene = np.max([len(indices) for indices in self.scenes_sample_indices])
+            unbalanced_dataset_size = self.dataset_size
+            self.dataset_size = max_samples_in_scene*self.num_scenes
+            num_added_positions = self.dataset_size - unbalanced_dataset_size
+            # gap of each scene to maximum / # of added fake positions
+            self.scene_prob_selection = [ (max_samples_in_scene-len(self.scenes_sample_indices[i]))/num_added_positions for i in range(self.num_scenes) ]
+        self.transform = data_transform
+        self.load_img = load_img
+
+    def __len__(self):
+        return self.dataset_size
+
+    def __getitem__(self, idx):
+
+        if idx >= len(self.poses): # sample from an under-represented scene
+            sampled_scene_idx = np.random.choice(range(self.num_scenes), p=self.scene_prob_selection)
+            idx = np.random.choice(self.scenes_sample_indices[sampled_scene_idx])
+
+        if self.load_img:
+            img = imread(self.img_paths[idx])
+        else:
+            img = None
+        pose = self.poses[idx]
+        est_pose = self.pred_poses[idx]
+        scene = self.scenes_ids[idx]
+        
+        if self.transform and img is not None:
+            img = self.transform(img)
+        if img is not None:
+            sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose}
+        else:
+            sample = {'pose': pose, 'scene': scene, 'est_pose': est_pose}
 
         return sample
 
