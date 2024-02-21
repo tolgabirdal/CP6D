@@ -1,67 +1,85 @@
 import numpy as np
-from nc_score import pose_error_transformation
+import torch
 from IPython import embed
+import torch.nn.functional as F
 
-def inductive_conformal_prediction(predicted_pose, calibration_data, precomputed_scores, alpha=0.1):
-    '''
-    predicted_pose: 4x4 transformation matrix, np.array, dtype=np.float32
-    calibration_data: list of 4x4 transformation matrix, np.array, dtype=np.float32
-    precomputed_scores: list of scores, np.array, dtype=np.float32
+def rot_err(est_pose, gt_pose):
+
+    est_pose_q = F.normalize(est_pose, p=2, dim=1)
+    gt_pose_q = F.normalize(gt_pose, p=2, dim=1)
+    inner_prod = torch.bmm(est_pose_q.view(est_pose_q.shape[0], 1, est_pose_q.shape[1]),
+                           gt_pose_q.view(gt_pose_q.shape[0], gt_pose_q.shape[1], 1)) 
+    # if torch.abs(inner_prod) <= 1:
+    orient_err = 2 * torch.acos(torch.abs(inner_prod)) * 180 / torch.pi
+    # else:
+    #     origin = torch.abs(torch.abs(inner_prod) - int(torch.abs(inner_prod)) - 1)
+    #     orient_err = 2 * torch.acos(origin) * 180 / torch.pi
+    return orient_err
+
+
+class ICP_ROT:
+    def __init__(self, gt_rot, pred_rot):
+        self.gt = gt_rot
+        self.pred = pred_rot
+        self.non_conformity_scores = []
+        self.alpha = 0.05
     
-    delta: p_values
-    Pred: prediction region
-    '''
-    n_cal = len(calibration_data) - 1
-    sorted_precomputed_scores = np.sort(precomputed_scores)[::-1]
+    def compute_non_conformity_scores(self):
+        self.non_conformity_scores = rot_err(self.gt, self.pred).squeeze()
+        return self.non_conformity_scores
     
-    # Compute test scores & prediction regions
-    deltas = []
-    for D_j in calibration_data:
-        trans, ori = pose_error_transformation(predicted_pose, D_j)
-        nc_score = trans + ori
+    def get_non_conformity_scores(self):
+        return torch.tensor(self.non_conformity_scores)
+    
+    def compute_p_value(self, nc_score):
+        p_value = 0
+        for i in range(self.gt.shape[0]):
+            if self.non_conformity_scores[i] >= nc_score:
+                p_value += 1
+        return p_value/self.gt.shape[0]
+    
+    def sample_pose(self, sample_iter=1000):
+        # Sample pose from the ground truth poses
         
-        delta = np.mean(sorted_precomputed_scores >= nc_score)
-        deltas.append(delta)
+        # Randomly generate quaternion components
 
-    # Compute prediction region
-    Pred = np.array([calibration_data[i] for i, delta in enumerate(deltas) if delta >= (1 - alpha)])
-    deltas = np.array(deltas)
-    # Quantify uncertainties
-    # unc = 1 - np.mean(deltas)
-    # unct = np.std(deltas)
-    return deltas, Pred
+        quats = torch.randn(sample_iter, 4)
 
-def p_value(pred_pose, gt_poses, score, non_conformity_score):
-    sorted_non_conformity_score = np.sort(non_conformity_score)[::-1]
-    scores = np.zeros(len(gt_poses))
-    p_values = np.zeros(len(gt_poses))
-    for i in range(len(gt_poses)):
-        trans, ori = score(pred_pose, gt_poses[i])
-        scores[i] = trans + ori
-        count = np.count_nonzero(non_conformity_score >= scores[i])
-        p_values[i] = (count + 1) / (len(gt_poses) + 1)
-    return p_values
+        # Normalize each quaternion to unit length
+        norm_quats = quats / torch.norm(quats, dim=1).unsqueeze(1)
+        return norm_quats
+    
+    def compute_p_value_from_sampled_poses(self, new_pose):
+    # Assuming self.non_conformity_scores is already computed and available
+        sampled_poses = self.sample_pose(1000)  # Sampled poses in batch
+        sample_nc_scores = rot_err(new_pose.unsqueeze(0), sampled_poses).squeeze()  # Batch compute non-conformity scores
 
-'''
-import numpy as np
-from nc_score import pose_error_transformation
-def inductive_conformal_prediction(predicted_pose, calibration_data, precomputed_scores, alpha=0.1):
-    n_cal = len(calibration_data) - 1
-    count_valid = 0
-    # Compute test scores & delta
-    deltas = []
-    for index, D_j in enumerate(calibration_data):
-        trans, ori = pose_error_transformation(predicted_pose, D_j)
-        s_n_plus_1 = trans + ori
+        # Expand dimensions for broadcasting
+        calibration_scores = self.non_conformity_scores.unsqueeze(0)
+        sample_nc_scores = sample_nc_scores.unsqueeze(1)
+
+        # Count how many calibration scores are >= each sampled score, vectorized
+        counts = (calibration_scores >= sample_nc_scores).sum(dim=1)
+
+        # Calculate p-values for each sampled pose
+        p_values = counts.float() / (self.gt.shape[0] + 1)
+
+        return p_values
+    
+    def compute_p_value_from_calibration_poses(self, new_pose):
+        # Ensure non_conformity_scores are pre-computed for the calibration set
+        self.compute_non_conformity_scores()
+ 
+        # Compute the non-conformity score for the new_pose compared to all calibration poses
+        new_pose_nc_scores = rot_err(new_pose.repeat(self.gt.shape[0],1), self.gt).squeeze()
         
-        delta = np.sum(s_n_plus_1 >= precomputed_scores[:n_cal+1]) / (n_cal + 1)
-        deltas.append(delta)
-    
-    # Compute prediction region
-    Pred = np.array([calibration_data[i] for i, delta in enumerate(deltas) if delta >= (1 - alpha)])
+        # Vectorize the comparison of new_pose's non-conformity scores against the calibration set
+        counts = (self.non_conformity_scores >= new_pose_nc_scores).sum()
+        
+        # Calculate p-values for the new_pose based on the calibration non-conformity scores
+        p_values = counts.float() / (self.gt.shape[0] + 1)
+        
+        return p_values
 
-    # Quantify uncertainties
-    # unc = 1 - np.mean(deltas)
-    # unct = np.std(deltas)
     
-    return Pred'''
+    
