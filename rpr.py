@@ -9,7 +9,7 @@ def load_images(image_path_1, image_path_2):
 
 # Function to find and match ORB features
 def find_and_match_features(image1, image2):
-    orb = cv2.cuda.ORB_create()
+    orb = cv2.ORB_create()
     kp1, des1 = orb.detectAndCompute(image1, None)
     kp2, des2 = orb.detectAndCompute(image2, None)
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
