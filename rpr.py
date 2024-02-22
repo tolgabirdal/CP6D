@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 
-# Function to load images
 def load_images(image_path_1, image_path_2):
     image1 = cv2.imread(image_path_1)
     image2 = cv2.imread(image_path_2)
@@ -25,14 +24,16 @@ def estimate_pose(kp1, kp2, matches, K):
     _, R, t, mask = cv2.recoverPose(E, points1, points2, K)
     return R, t
 
-def find_poses(image_path_1, image_path_2):
-    image1, image2 = load_images(image_path_1, image_path_2)
+def find_poses(image1, image2):
     kp1, kp2, matches = find_and_match_features(image1, image2)
     K = np.array([[585, 0, 320],
                   [0, 585, 240],
                   [0, 0, 1]], dtype=np.float32)
     R, t = estimate_pose(kp1, kp2, matches, K)
-    return R, t
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3] = t.T
+    return T
 # Main workflow
 if __name__ == "__main__":
     # Update these paths with the actual paths to your images
@@ -44,7 +45,7 @@ if __name__ == "__main__":
     print("Image 1 shape:", image1.shape)
 
     # Find and match ORB features
-    R, t = find_poses(image_path_1, image_path_2)
+    R, t = find_poses(image1, image2)
 
     print("Estimated Rotation:\n", R)
     print("Estimated Translation:\n", t)
