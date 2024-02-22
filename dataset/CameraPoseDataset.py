@@ -103,6 +103,11 @@ class CameraPoseDatasetPred(Dataset):
             self.scene_prob_selection = [ (max_samples_in_scene-len(self.scenes_sample_indices[i]))/num_added_positions for i in range(self.num_scenes) ]
         self.transform = data_transform
         self.load_img = load_img
+        self.imgs = []
+        for i in range(self.dataset_size):
+            img = imread(self.img_paths[i])
+            self.imgs.append(img)
+        self.imgs = np.array(self.imgs)
 
     def __len__(self):
         return self.dataset_size
@@ -113,14 +118,11 @@ class CameraPoseDatasetPred(Dataset):
             sampled_scene_idx = np.random.choice(range(self.num_scenes), p=self.scene_prob_selection)
             idx = np.random.choice(self.scenes_sample_indices[sampled_scene_idx])
 
-        if self.load_img:
-            img = imread(self.img_paths[idx])
-        else:
-            img = None
+
         pose = self.poses[idx]
         est_pose = self.pred_poses[idx]
         scene = self.scenes_ids[idx]
-        
+        img = self.imgs[idx]
         if self.transform and img is not None:
             img = self.transform(img)
         if img is not None:

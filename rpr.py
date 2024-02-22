@@ -9,7 +9,7 @@ def load_images(image_path_1, image_path_2):
 
 # Function to find and match ORB features
 def find_and_match_features(image1, image2):
-    orb = cv2.ORB_create()
+    orb = cv2.cuda.ORB_create()
     kp1, des1 = orb.detectAndCompute(image1, None)
     kp2, des2 = orb.detectAndCompute(image2, None)
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -25,25 +25,26 @@ def estimate_pose(kp1, kp2, matches, K):
     _, R, t, mask = cv2.recoverPose(E, points1, points2, K)
     return R, t
 
-# Main workflow
-if __name__ == "__main__":
-    # Update these paths with the actual paths to your images
-    image_path_1 = '/home/runyi/Project/CP6D/chess/seq-01/frame-000000.color.png'
-    image_path_2 = '/home/runyi/Project/CP6D/chess/seq-01/frame-000001.color.png'
-
-    # Load images
+def find_poses(image_path_1, image_path_2):
     image1, image2 = load_images(image_path_1, image_path_2)
-
-    # Find and match features
     kp1, kp2, matches = find_and_match_features(image1, image2)
-
-    # Default intrinsic parameters (given for the depth camera, used here for demonstration)
     K = np.array([[585, 0, 320],
                   [0, 585, 240],
                   [0, 0, 1]], dtype=np.float32)
-
-    # Estimate pose
     R, t = estimate_pose(kp1, kp2, matches, K)
+    return R, t
+# Main workflow
+if __name__ == "__main__":
+    # Update these paths with the actual paths to your images
+    image_path_1 = '/home/runyi/Data/7Scenes/chess/seq-01/frame-000000.color.png'
+    image_path_2 = '/home/runyi/Data/7Scenes/chess/seq-03/frame-000000.color.png'
+
+    # Load images
+    image1, image2 = load_images(image_path_1, image_path_2)
+    print("Image 1 shape:", image1.shape)
+
+    # Find and match ORB features
+    R, t = find_poses(image_path_1, image_path_2)
 
     print("Estimated Rotation:\n", R)
     print("Estimated Translation:\n", t)
