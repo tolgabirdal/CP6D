@@ -176,10 +176,10 @@ def compute_rotation_matrix_from_quaternion( quaternion, n_flag=True):
         quat = normalize_vector(quaternion)
     else:
         quat = quaternion
-    qw = quat[...,1].view(batch, 1)
-    qx = quat[...,2].view(batch, 1)
-    qy = quat[...,3].view(batch, 1)
-    qz = quat[...,0].view(batch, 1)
+    qw = quat[...,0].view(batch, 1)
+    qx = quat[...,1].view(batch, 1)
+    qy = quat[...,2].view(batch, 1)
+    qz = quat[...,3].view(batch, 1)
 
     # Unit quaternion rotation matrices computatation  
     xx = qx*qx
@@ -441,7 +441,7 @@ def compute_quaternions_from_axisAngles(self, axisAngles):
     y = sin*axisAngles[:,2]
     z = sin*axisAngles[:,3]
     
-    quat = torch.cat((w.view(-1,1), x.view(-1,1), y.view(-1,1), z.view(-1,1)), 1)
+    quat = torch.cat((x.view(-1,1), y.view(-1,1), z.view(-1,1), w.view(-1,1)), 1)
     
     return quat
 
