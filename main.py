@@ -273,7 +273,7 @@ if __name__ == '__main__':
             relative_pose = torch.tensor(find_poses(test_img, target_cal_img))
             relative_R = relative_pose[:3, :3]
             relative_t = relative_pose[:3, 3]
-            adj_R = relative_R @ test_R
+            adj_R = relative_R.T @ test_R
             adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
             rot_err = rotation_err(target_cal_q, adj_q)
         # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
