@@ -83,6 +83,7 @@ class CameraPoseDatasetPred(Dataset):
     def __init__(self, dataset_path, labels_file, data_transform=None,
                  equalize_scenes=False, load_img=True):
         super(CameraPoseDatasetPred, self).__init__()
+        _, self.feature_t, self.feature_rot = load_npz_file(labels_file+'_results.npz')
         self.img_paths, self.poses, self.scenes, self.scenes_ids = read_labels_file(labels_file, dataset_path)
         self.pred_poses = read_est_poses(labels_file)
         scene_to_poses = {}
@@ -103,11 +104,11 @@ class CameraPoseDatasetPred(Dataset):
             self.scene_prob_selection = [ (max_samples_in_scene-len(self.scenes_sample_indices[i]))/num_added_positions for i in range(self.num_scenes) ]
         self.transform = data_transform
         self.load_img = load_img
-        self.imgs = []
-        for i in range(self.dataset_size):
-            img = imread(self.img_paths[i])
-            self.imgs.append(img)
-        self.imgs = np.array(self.imgs)
+        # self.imgs = []
+        # for i in range(self.dataset_size):
+        #     img = imread(self.img_paths[i])
+        #     self.imgs.append(img)
+        # self.imgs = np.array(self.imgs)
 
     def __len__(self):
         return self.dataset_size
@@ -122,11 +123,13 @@ class CameraPoseDatasetPred(Dataset):
         pose = self.poses[idx]
         est_pose = self.pred_poses[idx]
         scene = self.scenes_ids[idx]
-        img = self.imgs[idx]
+        img = imread(self.img_paths[idx])
+        feature_t = self.feature_t[idx]
+        feature_rot = self.feature_rot[idx]
         if self.transform and img is not None:
             img = self.transform(img)
         if img is not None:
-            sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose}
+            sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose, 'feature_t': feature_t, 'feature_rot': feature_rot}
         else:
             sample = {'pose': pose, 'scene': scene, 'est_pose': est_pose}
 
@@ -151,3 +154,9 @@ def read_labels_file(labels_file, dataset_path):
     poses[:, 6] = df['q4'].values
     return imgs_paths, poses, scenes, scenes_ids
 
+def load_npz_file(npz_path):
+    data = np.load(npz_path, allow_pickle=True)
+    img_paths = data['img_path']
+    feature_t = data['feature_t']
+    feature_rot = data['feature_rot']
+    return img_paths, feature_t, feature_rot
