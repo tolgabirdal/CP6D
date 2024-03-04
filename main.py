@@ -293,4 +293,4 @@ if __name__ == '__main__':
     plt.xlabel('p-value')
     plt.ylabel('Frequency')
     plt.title('Histogram of p-values')
-    plt.savefig('vis/Cambridge/p_values_noadj/'+args.sn+'_0.5_p_values.png')
+    plt.savefig('vis/Cambridge/p_values_adj/'+args.sn+'_0.5_p_values.png')
