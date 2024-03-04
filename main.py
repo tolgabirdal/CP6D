@@ -233,12 +233,12 @@ if __name__ == '__main__':
     args = arg_parser.parse_args()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     dataset_path = '/home/runyi/Data/7Scenes/'
-    cal_labels_file = '/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_chess_cal.csv_results.csv'
-    test_labels_file = '/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_chess_test.csv_results.csv'
+    cal_labels_file = '/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+args.sn+'_cal.csv_results.csv'
+    test_labels_file = '/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+args.sn+'_test.csv_results.csv'
     cal_set = CameraPoseDatasetPred(dataset_path, cal_labels_file)
     test_set = CameraPoseDatasetPred(dataset_path, test_labels_file)
     
-    calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file('/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_chess_cal.csv_results.csv_results.npz')
+    calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file('/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+args.sn+'_cal.csv_results.csv_results.npz')
 
     calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
 
@@ -264,18 +264,18 @@ if __name__ == '__main__':
         target_cal_img = imread(target_cal_rot_path)
         target_cal_q = torch.tensor(cal_set.poses[target_cal_rot_index][3:]).unsqueeze(0)
     
-        try:
-            relative_pose = torch.tensor(find_poses(test_img, target_cal_img))
-            relative_R = relative_pose[:3, :3]
-            relative_t = relative_pose[:3, 3]
-            adj_R = relative_R.T @ test_R
-            adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
-            rot_err = rotation_err(target_cal_q, adj_q)
-        # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
-        # p_values.append(p_value)
-        except:
-            print(target_cal_rot_path)
-            rot_err = rotation_err(target_cal_q, test_rot)
+        # try:
+        #     relative_pose = torch.tensor(find_poses(test_img, target_cal_img))
+        #     relative_R = relative_pose[:3, :3]
+        #     relative_t = relative_pose[:3, 3]
+        #     adj_R = relative_R.T @ test_R
+        #     adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
+        #     rot_err = rotation_err(target_cal_q, adj_q)
+        # # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
+        # # p_values.append(p_value)
+        # except:
+            # print(target_cal_rot_path)
+        rot_err = rotation_err(target_cal_q, test_rot)
         
         p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
         p_values.append(p_value)
@@ -285,4 +285,4 @@ if __name__ == '__main__':
     plt.xlabel('p-value')
     plt.ylabel('Frequency')
     plt.title('Histogram of p-values')
-    plt.savefig('chess_0.5_p_values.png')
+    plt.savefig('vis/p_values_noadj'+args.sn+'_0.5_p_values.png')
