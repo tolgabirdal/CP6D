@@ -41,11 +41,16 @@ def quaternion_to_direction_vector(q):
     direction_vector = R @ z_axis
     return direction_vector
 
-sns = ['chess', 'fire', 'heads', 'office', 'pumpkin', 'redkitchen', 'stairs']
+# sns = ['heads', 'pumpkin', 'redkitchen', 'stairs']
+sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
 for sn in tqdm(sns):
-    camera_poses_train = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_train.csv_results.csv')
-    camera_poses_calib = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_cal.csv_results.csv')
-    camera_poses_test = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_test.csv_results.csv')
+    # camera_poses_train = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_train.csv_results.csv')
+    # camera_poses_calib = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_cal.csv_results.csv')
+    # camera_poses_test = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_test.csv_results.csv')
+    camera_poses_train = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_train.csv_results.csv')
+    camera_poses_calib = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_cal.csv_results.csv')
+    camera_poses_test = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_test.csv_results.csv')
+
 
 
     # Calculate direction vectors
@@ -79,4 +84,4 @@ for sn in tqdm(sns):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
 
-    plt.savefig('vis/camera_rot'+sn+'.png')
+    plt.savefig('vis/Cambridge/camera_rot_'+sn+'.png')
