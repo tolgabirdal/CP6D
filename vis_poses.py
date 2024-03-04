@@ -29,11 +29,15 @@ def quaternion_to_rotation_matrix(q):
                   [2*(qxqz - qyqw), 2*(qyqz + qxqw), 1 - 2*(qx2 + qy2)]])
     return R
 
-sns = ['heads', 'pumpkin', 'redkitchen', 'stairs']
+# sns = ['heads', 'pumpkin', 'redkitchen', 'stairs']
+sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
 for sn in tqdm(sns):
-    camera_poses_train = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_train.csv_results.csv')
-    camera_poses_calib = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_cal.csv_results.csv')
-    camera_poses_test = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_test.csv_results.csv')
+    # camera_poses_train = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_train.csv_results.csv')
+    # camera_poses_calib = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_cal.csv_results.csv')
+    # camera_poses_test = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_test.csv_results.csv')
+    camera_poses_train = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_train.csv_results.csv')
+    camera_poses_calib = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_cal.csv_results.csv')
+    camera_poses_test = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_test.csv_results.csv')
 
 
     fig = plt.figure(figsize=(10, 10))
@@ -59,7 +63,7 @@ for sn in tqdm(sns):
         R = quaternion_to_rotation_matrix(quat)
         
         # Define a simple coordinate frame
-        frame_length = 0.15
+        frame_length = 0.3
         origins = np.array([[0, 0, 0]]).T  # Origin of the frame
         directions = np.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]]) * frame_length  # Axis directions
         transformed_directions = R @ directions  # Rotate the frame
@@ -86,4 +90,4 @@ for sn in tqdm(sns):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
 
-    plt.savefig('vis/camera_poses_'+sn+'.png')
+    plt.savefig('vis/Cambridge/camera_poses_'+sn+'.png')

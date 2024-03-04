@@ -264,17 +264,17 @@ if __name__ == '__main__':
         target_cal_img = imread(target_cal_rot_path)
         target_cal_q = torch.tensor(cal_set.poses[target_cal_rot_index][3:]).unsqueeze(0)
     
-        # try:
-        #     relative_pose = torch.tensor(find_poses(test_img, target_cal_img))
-        #     relative_R = relative_pose[:3, :3]
-        #     relative_t = relative_pose[:3, 3]
-        #     adj_R = relative_R.T @ test_R
-        #     adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
-        #     rot_err = rotation_err(target_cal_q, adj_q)
-        # # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
-        # # p_values.append(p_value)
-        # except:
-            # print(target_cal_rot_path)
+        try:
+            relative_pose = torch.tensor(find_poses(test_img, target_cal_img))
+            relative_R = relative_pose[:3, :3]
+            relative_t = relative_pose[:3, 3]
+            adj_R = relative_R.T @ test_R
+            adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
+            rot_err = rotation_err(target_cal_q, adj_q)
+        # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
+        # p_values.append(p_value)
+        except:
+            print(target_cal_rot_path)
         rot_err = rotation_err(target_cal_q, test_rot)
         
         p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
@@ -285,4 +285,4 @@ if __name__ == '__main__':
     plt.xlabel('p-value')
     plt.ylabel('Frequency')
     plt.title('Histogram of p-values')
-    plt.savefig('vis/p_values_noadj'+args.sn+'_0.5_p_values.png')
+    plt.savefig('vis/p_values_adj1'+args.sn+'_0.5_p_values.png')
