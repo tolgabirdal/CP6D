@@ -12,6 +12,8 @@ import argparse
 from dataset.CameraPoseDataset import CameraPoseDatasetPred
 from skimage.io import imread
 import cv2
+from Keypoint.ALIKED import aliked_kpts
+import torch.nn.functional as F
 from IPython import embed
 
 # compute the relative pose
@@ -66,66 +68,6 @@ def compute_rotation_matrix_from_quaternion( quaternion, n_flag=True):
     
     return matrix
 
-def compute_relative_pose(pose1, pose2):
-    '''
-    pose1 and pose2 are nx7 tensors, where the first 3 elements are the translation and the last 4 elements are the quaternion.
-    '''
-    # Assuming `tools.compute_rotation_matrix_from_quaternion` is correctly defined elsewhere
-    R1 = compute_rotation_matrix_from_quaternion(pose1[:, 3:])
-    R2 = compute_rotation_matrix_from_quaternion(pose2[:, 3:])
-    t1 = pose1[:, :3].unsqueeze(-1)  # Ensure t1 is nx3x1 for correct broadcasting in matrix operations
-    t2 = pose2[:, :3].unsqueeze(-1)  # Ensure t2 is nx3x1
-    # Compute the relative rotation
-    relative_R = R2.bmm(R1.transpose(1, 2))
-    
-    # Compute the relative translation
-    relative_t = t2 - relative_R.bmm(t1)
-
-    # Flatten relative_t back to nx3 for concatenation
-    relative_t = relative_t.squeeze(-1)
-
-    # For returning, you may want to convert relative_R back to quaternions and concatenate with relative_t
-    # Assuming `tools.compute_quaternion_from_rotation_matrix` is a function that converts rotation matrices to quaternions
-    relative_quaternions = compute_quaternions_from_rotation_matrices(relative_R)
-    relative_pose = torch.cat((relative_t, relative_quaternions), dim=1)
-
-    return relative_pose
-
-def compute_and_compare_pose(T_r, test_pose, gt_pose):
-    """
-    Compute the final pose using the relative pose T_r and test_pose, 
-    and compare it with the ground truth pose (gt_pose).
-    
-    :param T_r: numpy array of shape (4, 4), the relative transformation matrix
-    :param test_pose: torch.Tensor of shape (1, 7), the test pose in translation + quaternion format
-    :param gt_pose: numpy array of shape (7,), the ground truth pose in translation + quaternion format
-    :return: position error and orientation error
-    """
-    # Convert quaternions to rotation matrices
-    R_test = compute_rotation_matrix_from_quaternion(test_pose[:, 3:], n_flag=True)
-
-    # Create transformation matrices for test_pose
-    T_test = torch.zeros((4, 4))
-    T_test[:3, :3] = R_test.squeeze(0)
-    T_test[:3, 3] = test_pose[:, :3].squeeze(0)
-    T_test[3, 3] = 1
-    
-    # Convert numpy T_r to tensor and apply relative transformation
-    T_final = torch.mm(torch.FloatTensor(T_r), T_test)
-
-    # Convert the final transformation matrix back to translation and quaternion format
-    t_final = T_final[:3, 3]
-    R_final = T_final[:3, :3]
-    quaternion_final = compute_quaternions_from_rotation_matrices(R_final.unsqueeze(0))
-
-    # Final pose in translation + quaternion format
-    final_pose = torch.cat((t_final, quaternion_final.squeeze(0)), 0).unsqueeze(0)
-
-    # Compare with gt_pose
-    gt_pose_tensor = torch.FloatTensor(gt_pose).unsqueeze(0)
-    posit_err, orient_err = pose_err(final_pose, gt_pose_tensor)
-
-    return posit_err.item(), orient_err.item()
 
 def load_npz_file(npz_path):
     data = np.load(npz_path, allow_pickle=True)
@@ -158,12 +100,14 @@ def find_most_similar_image(new_image_feature, dataset_features, img_paths):
     
     return most_similar_image_path
 
-def find_and_match_features(image1, image2):
+def find_and_match_features(image1, image2, model):
     # Create SIFT object
     sift = cv2.SIFT_create()
-    kp1, des1 = sift.detectAndCompute(image1, None)
-    kp2, des2 = sift.detectAndCompute(image2, None)
-    
+
+    # kp1, des1 = sift.detectAndCompute(image1, None)
+    # kp2, des2 = sift.detectAndCompute(image2, None)
+    kp1, des1 = aliked_kpts.keypoint(image1, model)
+    kp2, des2 = aliked_kpts.keypoint(image2, model)
     # BFMatcher with default params
     bf = cv2.BFMatcher()
     matches = bf.knnMatch(des1, des2, k=2)
@@ -173,21 +117,20 @@ def find_and_match_features(image1, image2):
     for m, n in matches:
         if m.distance < 0.75*n.distance:
             good_matches.append(m)
-    
     return kp1, kp2, good_matches
 
 # Function to estimate essential matrix and recover pose
 def estimate_pose(kp1, kp2, matches, K):
-    points1 = np.float32([kp1[m.queryIdx].pt for m in matches])
-    points2 = np.float32([kp2[m.trainIdx].pt for m in matches])
+    points1 = np.float32([kp1[m.queryIdx] for m in matches])
+    points2 = np.float32([kp2[m.trainIdx] for m in matches])
     E, mask = cv2.findEssentialMat(points1, points2, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
     _, R, t, mask = cv2.recoverPose(E, points1, points2, K)
     return R, t
 
-def find_poses(image1, image2):
-    kp1, kp2, good_matches = find_and_match_features(image1, image2)
-    K = np.array([[585, 0, 320],
-                  [0, 585, 240],
+def find_poses(image1, image2, model):
+    kp1, kp2, good_matches = find_and_match_features(image1, image2, model)
+    K = np.array([[948, 0, 960],
+                  [0, 533, 540],
                   [0, 0, 1]], dtype=np.float32)
     R, t = estimate_pose(kp1, kp2, good_matches, K)
     T = np.eye(4)
@@ -195,7 +138,7 @@ def find_poses(image1, image2):
     T[:3, 3] = t.squeeze()  # Ensure t is correctly shaped
     return T
 
-import torch.nn.functional as F
+
 
 def rotation_err(est_pose, gt_pose):
     """
@@ -252,7 +195,7 @@ if __name__ == '__main__':
     calib_rot_nc = icp_rot.compute_non_conformity_scores()
     
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
-    
+    keypoint_detector = aliked_kpts.model_selection('aliked-n32',top_k=1000, device=device)
     p_values = []
     for i, minibatch in enumerate(tqdm(dataloader)):
             
@@ -270,10 +213,10 @@ if __name__ == '__main__':
         target_cal_q = torch.tensor(cal_set.poses[target_cal_rot_index][3:]).unsqueeze(0)
     
         try:
-            relative_pose = torch.tensor(find_poses(test_img, target_cal_img))
+            relative_pose = torch.tensor(find_poses(test_img, target_cal_img, keypoint_detector))
             relative_R = relative_pose[:3, :3]
             relative_t = relative_pose[:3, 3]
-            adj_R = relative_R.T @ test_R
+            adj_R = relative_R @ test_R
             adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
             rot_err = rotation_err(target_cal_q, adj_q)
         # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
@@ -288,9 +231,10 @@ if __name__ == '__main__':
         tqdm.write(f"p-value: {p_value}")
         p_values.append(p_value)
         
+        
     # Plot the histogram of p-values
     plt.hist(p_values, bins=10)
     plt.xlabel('p-value')
     plt.ylabel('Frequency')
     plt.title('Histogram of p-values')
-    plt.savefig('vis/Cambridge/p_values_adj/'+args.sn+'_0.5_p_values.png')
+    plt.savefig('vis/Cambridge/p_values_adj/'+args.sn+'2_0.5_p_values.png')

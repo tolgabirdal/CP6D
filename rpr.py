@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from IPython import embed
 
 def load_images(image_path_1, image_path_2):
     image1 = cv2.imread(image_path_1)
@@ -22,10 +23,12 @@ def estimate_pose(kp1, kp2, matches, K):
     points2 = np.float32([kp2[m.trainIdx].pt for m in matches])
     E, mask = cv2.findEssentialMat(points1, points2, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
     _, R, t, mask = cv2.recoverPose(E, points1, points2, K)
+    embed()
     return R, t
 
 def find_poses(image1, image2):
     kp1, kp2, matches = find_and_match_features(image1, image2)
+
     K = np.array([[585, 0, 320],
                   [0, 585, 240],
                   [0, 0, 1]], dtype=np.float32)
