@@ -129,8 +129,11 @@ def estimate_pose(kp1, kp2, matches, K):
 
 def find_poses(image1, image2, model):
     kp1, kp2, good_matches = find_and_match_features(image1, image2, model)
-    K = np.array([[948, 0, 960],
-                  [0, 533, 540],
+    # K = np.array([[948, 0, 960],
+    #               [0, 533, 540],
+    #               [0, 0, 1]], dtype=np.float32)
+    K = np.array([[585, 0, 240],
+                  [0, 585, 320],
                   [0, 0, 1]], dtype=np.float32)
     R, t = estimate_pose(kp1, kp2, good_matches, K)
     T = np.eye(4)
@@ -175,13 +178,14 @@ if __name__ == '__main__':
     arg_parser.add_argument("--sn", help="name of scenes e.g. chess, fire")
     args = arg_parser.parse_args()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # dataset_path = '/home/runyi/Data/7Scenes/'
-    # cal_labels_file = '/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+args.sn+'_cal.csv_results.csv'
-    # test_labels_file = '/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+args.sn+'_test.csv_results.csv'
-    dataset_path = '/home/runyi/Data/CambridgeLandmarks/'
-    cal_labels_file = '/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+args.sn+'_cal.csv_results.csv'
-    test_labels_file = '/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+args.sn+'_test.csv_results.csv'
-    calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+args.sn+'_cal.csv_results.csv_results.npz')
+    dataset_path = '/home/runyi/Data/7Scenes/'
+    cal_labels_file = '/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+args.sn+'_cal.csv_results.csv'
+    test_labels_file = '/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+args.sn+'_test.csv_results.csv'
+    calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file('/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+args.sn+'_cal.csv_results.csv_results.npz')
+    # dataset_path = '/home/runyi/Data/CambridgeLandmarks/'
+    # cal_labels_file = '/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+args.sn+'_cal.csv_results.csv'
+    # test_labels_file = '/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+args.sn+'_test.csv_results.csv'
+    # calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+args.sn+'_cal.csv_results.csv_results.npz')
     
     cal_set = CameraPoseDatasetPred(dataset_path, cal_labels_file)
     test_set = CameraPoseDatasetPred(dataset_path, test_labels_file)
@@ -216,7 +220,7 @@ if __name__ == '__main__':
             relative_pose = torch.tensor(find_poses(test_img, target_cal_img, keypoint_detector))
             relative_R = relative_pose[:3, :3]
             relative_t = relative_pose[:3, 3]
-            adj_R = relative_R @ test_R
+            adj_R = relative_R.T @ test_R
             adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
             rot_err = rotation_err(target_cal_q, adj_q)
         # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
@@ -237,4 +241,4 @@ if __name__ == '__main__':
     plt.xlabel('p-value')
     plt.ylabel('Frequency')
     plt.title('Histogram of p-values')
-    plt.savefig('vis/Cambridge/p_values_adj/'+args.sn+'2_0.5_p_values.png')
+    plt.savefig('vis/7Scenes/p_values_adj/'+args.sn+'2_0.5_p_values.png')
