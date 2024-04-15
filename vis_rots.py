@@ -42,14 +42,18 @@ def quaternion_to_direction_vector(q):
     return direction_vector
 
 # sns = ['heads', 'pumpkin', 'redkitchen', 'stairs']
-sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
+# sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
+sns = ['colosseum_exterior', 'notre_dame_front_facade', 'trevi_fountain']
 for sn in tqdm(sns):
     # camera_poses_train = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_train.csv_results.csv')
     # camera_poses_calib = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_cal.csv_results.csv')
     # camera_poses_test = read_poses('./dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+sn+'_test.csv_results.csv')
-    camera_poses_train = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_train.csv_results.csv')
-    camera_poses_calib = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_cal.csv_results.csv')
-    camera_poses_test = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_test.csv_results.csv')
+    # camera_poses_train = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_train.csv_results.csv')
+    # camera_poses_calib = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_cal.csv_results.csv')
+    # camera_poses_test = read_poses('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+sn+'_test.csv_results.csv')
+    camera_poses_train = read_poses('/home/runyi/Project/TBCP6D/dataset/PhotoTourism/'+sn+'_train.csv_results.csv')
+    camera_poses_calib = read_poses('/home/runyi/Project/TBCP6D/dataset/PhotoTourism/'+sn+'_val.csv_results.csv')
+    camera_poses_test = read_poses('/home/runyi/Project/TBCP6D/dataset/PhotoTourism/'+sn+'_test.csv_results.csv')
 
 
 
@@ -84,4 +88,4 @@ for sn in tqdm(sns):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
 
-    plt.savefig('vis/Cambridge/camera_rot_'+sn+'.png')
+    plt.savefig('vis/TourismPhoto/camera_rot_'+sn+'.png')
