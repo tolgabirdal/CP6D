@@ -132,8 +132,11 @@ def find_poses(image1, image2, model):
     # K = np.array([[948, 0, 960],
     #               [0, 533, 540],
     #               [0, 0, 1]], dtype=np.float32)
-    K = np.array([[585, 0, 240],
-                  [0, 585, 320],
+    # Cambridge 
+    
+    # 7Scenes
+    K = np.array([[532.57, 0, 320],
+                  [0, 531.54, 240],
                   [0, 0, 1]], dtype=np.float32)
     R, t = estimate_pose(kp1, kp2, good_matches, K)
     T = np.eye(4)
@@ -241,4 +244,4 @@ if __name__ == '__main__':
     plt.xlabel('p-value')
     plt.ylabel('Frequency')
     plt.title('Histogram of p-values')
-    plt.savefig('vis/7Scenes/p_values_adj/'+args.sn+'2_0.5_p_values.png')
+    plt.savefig('vis/7Scenes/ALIKED/'+args.sn+'_0.5_p_values.png')
