@@ -19,6 +19,7 @@ def rot_err(est_pose, gt_pose):
 
 class ICP_ROT:
     def __init__(self, gt_rot, pred_rot):
+        super(ICP_ROT, self).__init__()
         self.gt = gt_rot
         self.pred = pred_rot
         self.non_conformity_scores = []

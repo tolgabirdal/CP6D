@@ -81,9 +81,12 @@ class CameraPoseDatasetPred(Dataset):
     """
 
     def __init__(self, dataset_path, labels_file, data_transform=None,
-                 equalize_scenes=False, load_img=True):
+                 equalize_scenes=False, load_img=True, load_npz=False):
         super(CameraPoseDatasetPred, self).__init__()
-        _, self.feature_t, self.feature_rot = load_npz_file(labels_file+'_results.npz')
+            
+        self.load_npz = load_npz
+        if self.load_npz == True:
+            _ , self.feature_t, self.feature_rot = load_npz_file(labels_file+'_results.npz')
         self.img_paths, self.poses, self.scenes, self.scenes_ids = read_labels_file(labels_file, dataset_path)
         self.pred_poses = read_est_poses(labels_file)
         scene_to_poses = {}
@@ -124,12 +127,16 @@ class CameraPoseDatasetPred(Dataset):
         est_pose = self.pred_poses[idx]
         scene = self.scenes_ids[idx]
         img = imread(self.img_paths[idx])
-        feature_t = self.feature_t[idx]
-        feature_rot = self.feature_rot[idx]
+        if self.load_npz == True:
+            feature_t = self.feature_t[idx]
+            feature_rot = self.feature_rot[idx]
         if self.transform and img is not None:
             img = self.transform(img)
         if img is not None:
-            sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose, 'feature_t': feature_t, 'feature_rot': feature_rot}
+            if self.load_npz == False:
+                sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose}
+            else:
+                sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose, 'feature_t': feature_t, 'feature_rot': feature_rot}
         else:
             sample = {'pose': pose, 'scene': scene, 'est_pose': est_pose}
 
