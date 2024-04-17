@@ -15,6 +15,8 @@ import cv2
 from Keypoint.ALIKED import aliked_kpts
 import torch.nn.functional as F
 from IPython import embed
+from colmap.scripts.python.read_write_model import read_model, qvec2rotmat
+from colmap.scripts.python.read_write_dense import read_array
 
 # compute the relative pose
 def normalize_vector( v):
@@ -206,6 +208,9 @@ if __name__ == '__main__':
     # print(calib_rot_nc)
     
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
+    
+    # colmap data
+    cameras, images, points = read_model(path='/home/runyi/Data/phototourism'+ args.sn + '/dense/sparse', ext='.bin')
     # keypoint_detector = aliked_kpts.model_selection('aliked-n32',top_k=1000, device=device)
     p_values = []
     for i, minibatch in enumerate(tqdm(dataloader)):
