@@ -127,7 +127,7 @@ def estimate_pose(kp1, kp2, matches, K):
     _, R, t, mask = cv2.recoverPose(E, points1, points2, K)
     return R, t
 
-def find_poses(image1, image2, model):
+def find_poses(image1, image2, model, K):
     kp1, kp2, good_matches = find_and_match_features(image1, image2, model)
     # K = np.array([[948, 0, 960],
     #               [0, 533, 540],
@@ -135,9 +135,9 @@ def find_poses(image1, image2, model):
     # Cambridge 
     
     # 7Scenes
-    K = np.array([[532.57, 0, 320],
-                  [0, 531.54, 240],
-                  [0, 0, 1]], dtype=np.float32)
+    # K = np.array([[532.57, 0, 320],
+    #               [0, 531.54, 240],
+    #               [0, 0, 1]], dtype=np.float32)
     R, t = estimate_pose(kp1, kp2, good_matches, K)
     T = np.eye(4)
     T[:3, :3] = R
