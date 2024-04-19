@@ -104,12 +104,15 @@ def find_most_similar_image(new_image_feature, dataset_features, img_paths):
 
 def find_and_match_features(image1, image2, model):
     # Create SIFT object
+    # if model == 'sift':
+    #     sift = cv2.SIFT_create()
+    # elif model == 'aliked-n32':
+    #     keypoint_detector = aliked_kpts.model_selection('aliked-n32',top_k=1000, device=device)
     sift = cv2.SIFT_create()
-
-    # kp1, des1 = sift.detectAndCompute(image1, None)
-    # kp2, des2 = sift.detectAndCompute(image2, None)
-    kp1, des1 = aliked_kpts.keypoint(image1, model)
-    kp2, des2 = aliked_kpts.keypoint(image2, model)
+    kp1, des1 = sift.detectAndCompute(image1, None)
+    kp2, des2 = sift.detectAndCompute(image2, None)
+    # kp1, des1 = aliked_kpts.keypoint(image1, model)
+    # kp2, des2 = aliked_kpts.keypoint(image2, model)
     # BFMatcher with default params
     bf = cv2.BFMatcher()
     matches = bf.knnMatch(des1, des2, k=2)
@@ -123,8 +126,8 @@ def find_and_match_features(image1, image2, model):
 
 # Function to estimate essential matrix and recover pose
 def estimate_pose(kp1, kp2, matches, K):
-    points1 = np.float32([kp1[m.queryIdx] for m in matches])
-    points2 = np.float32([kp2[m.trainIdx] for m in matches])
+    points1 = np.float32([kp1[m.queryIdx].pt for m in matches])
+    points2 = np.float32([kp2[m.trainIdx].pt for m in matches])
     E, mask = cv2.findEssentialMat(points1, points2, K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
     _, R, t, mask = cv2.recoverPose(E, points1, points2, K)
     return R, t
@@ -140,6 +143,7 @@ def find_poses(image1, image2, model, K):
     # K = np.array([[532.57, 0, 320],
     #               [0, 531.54, 240],
     #               [0, 0, 1]], dtype=np.float32)
+    
     R, t = estimate_pose(kp1, kp2, good_matches, K)
     T = np.eye(4)
     T[:3, :3] = R
@@ -195,12 +199,16 @@ if __name__ == '__main__':
     # test_labels_file = '/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+args.sn+'_test.csv_results.csv'
     # calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file('/home/runyi/Project/TBCP6D/dataset/CambridgeLandmarks_0.5/abs_cambridge_pose_sorted.csv_'+args.sn+'_cal.csv_results.csv_results.npz')
     
-    cal_set = CameraPoseDatasetPred(dataset_path, cal_labels_file)
-    test_set = CameraPoseDatasetPred(dataset_path, test_labels_file)
-    
+    cal_set = CameraPoseDatasetPred(dataset_path, cal_labels_file, load_npz=True)
+    test_set = CameraPoseDatasetPred(dataset_path, test_labels_file, load_npz=True)
+    K = np.array([[1270.79580363, 0, 420.075166],
+                  [0, 1270.79580363, 440.50690571],
+                  [0, 0, 1]], dtype=np.float32)
+    # 1270.79580363, 1270.79580363,  420.075166  ,  440.50690571
     # calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file('/home/runyi/Project/TBCP6D/dataset/7Scenes_0.5/abs_7scenes_pose.csv_'+args.sn+'_cal.csv_results.csv_results.npz')
+    calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file('/home/runyi/Project/TBCP6D/dataset/PhotoTourism/'+args.sn+'_val.csv_results.npz')
 
-    # calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
+    calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
 
     # calib non-conformity
     icp_rot = ICP_ROT(torch.tensor(cal_set.poses[:, 3:]), torch.tensor(cal_set.pred_poses[:, 3:]))
@@ -216,38 +224,40 @@ if __name__ == '__main__':
     p_values = []
     for i, minibatch in enumerate(tqdm(dataloader)):
             
-        # test_feature_rot = minibatch['feature_rot']
+        test_feature_rot = minibatch['feature_rot']
         test_img = minibatch['img'].squeeze(0).detach().numpy()
         test_t = minibatch['pose'][:, :3]
         test_q_gt = minibatch['pose'][:, 3:]
         test_q = minibatch['est_pose'][:, 3:]
         test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
         
-        rot_err = rotation_err(test_q, test_q_gt)
-        p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
+        # rot_err = rotation_err(test_q, test_q_gt)
+        # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
         
-        # # target_cal_rot_path = find_most_similar_image(test_feature_rot, calibration_feature_rot, calibration_img_path)
-        # # target_cal_rot_path =dataset_path+target_cal_rot_path
-        # # target_cal_rot_index = cal_set.img_paths.index(target_cal_rot_path)
+        target_cal_rot_path = find_most_similar_image(test_feature_rot, calibration_feature_rot, calibration_img_path)
+        # target_cal_rot_path =dataset_path+target_cal_rot_path
+        
+        target_cal_rot_index = cal_set.img_paths.index(target_cal_rot_path)
 
-        # # target_cal_img = imread(target_cal_rot_path)
-        # # target_cal_q = torch.tensor(cal_set.poses[target_cal_rot_index][3:]).unsqueeze(0)
-    
+        target_cal_img = imread(target_cal_rot_path)
+        target_cal_q = torch.tensor(cal_set.poses[target_cal_rot_index][3:]).unsqueeze(0)
+        embed()
         # try:
-        #     relative_pose = torch.tensor(find_poses(test_img, target_cal_img, keypoint_detector))
+        #     relative_pose = torch.tensor(find_poses(test_img, target_cal_img, 'sift', K))
         #     relative_R = relative_pose[:3, :3]
         #     relative_t = relative_pose[:3, 3]
         #     adj_R = relative_R.T @ test_R
         #     adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
         #     rot_err = rotation_err(target_cal_q, adj_q)
-        # # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
+        #     p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
         # # p_values.append(p_value)
         # except:
         #     print(target_cal_rot_path)
-        #     rot_err = rotation_err(target_cal_q, test_rot)
+        # rot_err = rotation_err(target_cal_q, test_q)
+        p_value = icp_rot.compute_p_value_from_calibration_poses(test_q)
 
-        # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
-        
+            
+        p_values.append(p_value)
         # Add p-value to tqdm print
         tqdm.write(f"p-value: {p_value}")
         p_values.append(p_value)
@@ -258,4 +268,4 @@ if __name__ == '__main__':
     plt.xlabel('p-value')
     plt.ylabel('Frequency')
     plt.title('Histogram of p-values')
-    plt.savefig('vis/TourismPhoto/p_values_gt/'+args.sn+'_p_values.png')
+    plt.savefig('vis/TourismPhoto/p_values_relative/'+args.sn+'_p_values.png')

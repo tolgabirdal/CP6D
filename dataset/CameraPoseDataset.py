@@ -86,7 +86,7 @@ class CameraPoseDatasetPred(Dataset):
             
         self.load_npz = load_npz
         if self.load_npz == True:
-            _ , self.feature_t, self.feature_rot = load_npz_file(labels_file+'_results.npz')
+            _ , self.feature_t, self.feature_rot = load_npz_file(labels_file.replace('results.csv', 'results.npz'))
         self.img_paths, self.poses, self.scenes, self.scenes_ids = read_labels_file(labels_file, dataset_path)
         self.pred_poses = read_est_poses(labels_file)
         scene_to_poses = {}
@@ -136,7 +136,7 @@ class CameraPoseDatasetPred(Dataset):
             if self.load_npz == False:
                 sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose}
             else:
-                sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose, 'feature_t': feature_t, 'feature_rot': feature_rot}
+                sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose, 'feature_t': feature_t, 'feature_rot': feature_rot, 'img_path': self.img_paths[idx]}
         else:
             sample = {'pose': pose, 'scene': scene, 'est_pose': est_pose}
 

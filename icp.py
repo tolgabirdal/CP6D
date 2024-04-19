@@ -4,7 +4,7 @@ from IPython import embed
 import torch.nn.functional as F
 
 def rot_err(est_pose, gt_pose):
-
+                 
     est_pose_q = F.normalize(est_pose, p=2, dim=1)
     gt_pose_q = F.normalize(gt_pose, p=2, dim=1)
     inner_prod = torch.bmm(est_pose_q.view(est_pose_q.shape[0], 1, est_pose_q.shape[1]),
