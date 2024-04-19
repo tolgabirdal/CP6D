@@ -209,8 +209,9 @@ if __name__ == '__main__':
     
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
     
-    # colmap data
-    cameras, images, points = read_model(path='/home/runyi/Data/phototourism'+ args.sn + '/dense/sparse', ext='.bin')
+    # # colmap data
+    # cameras, images, points = read_model(path='/home/runyi/Data/phototourism'+ args.sn + '/dense/sparse', ext='.bin')
+    # print()
     # keypoint_detector = aliked_kpts.model_selection('aliked-n32',top_k=1000, device=device)
     p_values = []
     for i, minibatch in enumerate(tqdm(dataloader)):
