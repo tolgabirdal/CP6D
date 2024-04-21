@@ -151,7 +151,6 @@ def find_poses(image1, image2, model, K):
     return T
 
 
-
 def rotation_err(est_pose, gt_pose):
     """
     Calculate the orientation error given the estimated and ground truth pose(s).
@@ -213,59 +212,105 @@ if __name__ == '__main__':
     # calib non-conformity
     icp_rot = ICP_ROT(torch.tensor(cal_set.poses[:, 3:]), torch.tensor(cal_set.pred_poses[:, 3:]))
     calib_rot_nc = icp_rot.compute_non_conformity_scores()
+    calib_t_nc = translation_err(torch.tensor(cal_set.poses[:, :3]), torch.tensor(cal_set.pred_poses[:, :3]))
     # print(calib_rot_nc)
-    
+    ori_rot_err = []
+    new_rot_err = []
+    ori_t_err = []
+    new_t_err = []
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
     
     # # colmap data
     # cameras, images, points = read_model(path='/home/runyi/Data/phototourism'+ args.sn + '/dense/sparse', ext='.bin')
     # print()
     # keypoint_detector = aliked_kpts.model_selection('aliked-n32',top_k=1000, device=device)
-    p_values = []
-    for i, minibatch in enumerate(tqdm(dataloader)):
+    p_set = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    mean_rot_err = []
+    random_prune_rot_err = []
+    mean_t_err = []
+    random_prune_t_err = []
+    for p in p_set:
+        p_values_rot = []
+        p_values_t = []
+        for i, minibatch in enumerate(tqdm(dataloader)):
+                
+            test_feature_rot = minibatch['feature_rot']
+            test_feature_t = minibatch['feature_t']
+            test_img = minibatch['img'].squeeze(0).detach().numpy()
+            test_t_gt = minibatch['pose'][:, :3]
+            test_t = minibatch['est_pose'][:, :3]
+            test_q_gt = minibatch['pose'][:, 3:]
+            test_q = minibatch['est_pose'][:, 3:]
+            test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
             
-        test_feature_rot = minibatch['feature_rot']
-        test_img = minibatch['img'].squeeze(0).detach().numpy()
-        test_t = minibatch['pose'][:, :3]
-        test_q_gt = minibatch['pose'][:, 3:]
-        test_q = minibatch['est_pose'][:, 3:]
-        test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
-        
-        # rot_err = rotation_err(test_q, test_q_gt)
-        # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
-        
-        target_cal_rot_path = find_most_similar_image(test_feature_rot, calibration_feature_rot, calibration_img_path)
-        # target_cal_rot_path =dataset_path+target_cal_rot_path
-        
-        target_cal_rot_index = cal_set.img_paths.index(target_cal_rot_path)
-
-        target_cal_img = imread(target_cal_rot_path)
-        target_cal_q = torch.tensor(cal_set.poses[target_cal_rot_index][3:]).unsqueeze(0)
-        embed()
-        # try:
-        #     relative_pose = torch.tensor(find_poses(test_img, target_cal_img, 'sift', K))
-        #     relative_R = relative_pose[:3, :3]
-        #     relative_t = relative_pose[:3, 3]
-        #     adj_R = relative_R.T @ test_R
-        #     adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
-        #     rot_err = rotation_err(target_cal_q, adj_q)
-        #     p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
-        # # p_values.append(p_value)
-        # except:
-        #     print(target_cal_rot_path)
-        # rot_err = rotation_err(target_cal_q, test_q)
-        p_value = icp_rot.compute_p_value_from_calibration_poses(test_q)
-
+            # rot_err = rotation_err(test_q, test_q_gt)
+            # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
             
-        p_values.append(p_value)
-        # Add p-value to tqdm print
-        tqdm.write(f"p-value: {p_value}")
-        p_values.append(p_value)
-        
-        
-    # Plot the histogram of p-values
-    plt.hist(p_values, bins=10)
+            target_cal_rot_path = find_most_similar_image(test_feature_rot, calibration_feature_rot, calibration_img_path)
+            target_cal_t_path = find_most_similar_image(test_feature_t, calibration_feature_t, calibration_img_path)
+            # target_cal_rot_path =dataset_path+target_cal_rot_path
+            
+            target_cal_rot_index = cal_set.img_paths.index(target_cal_rot_path)
+            target_cal_t_path = cal_set.img_paths.index(target_cal_t_path)
+
+            target_cal_img = imread(target_cal_rot_path)
+            target_cal_q = torch.tensor(cal_set.poses[target_cal_rot_index][3:]).unsqueeze(0)
+            target_cal_t = torch.tensor(cal_set.poses[target_cal_t_path][:3]).unsqueeze(0)
+            # try:
+            #     relative_pose = torch.tensor(find_poses(test_img, target_cal_img, 'sift', K))
+            #     relative_R = relative_pose[:3, :3]
+            #     relative_t = relative_pose[:3, 3]
+            #     adj_R = relative_R.T @ test_R
+            #     adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
+            #     rot_err = rotation_err(target_cal_q, adj_q)
+            #     p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
+            # # p_values.append(p_value)
+            # except:
+            #     print(target_cal_rot_path)
+            rot_err = rotation_err(target_cal_q, test_q)
+            t_err = translation_err(target_cal_t, test_t)
+            p_value_rot = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
+            p_value_t = (t_err.item() <= calib_t_nc).sum()/len(calib_t_nc)
+            # p_value = icp_rot.compute_p_value_from_calibration_poses(test_q)
+            
+            original_rot_err = rotation_err(test_q, test_q_gt)
+            original_t_err = translation_err(test_t, test_t_gt)
+            ori_rot_err.append(original_rot_err.item())
+            ori_t_err.append(original_t_err.item())
+            if p_value_rot >= p:
+                new_rot_err.append(original_rot_err.item())
+            if p_value_t >= p:
+                new_t_err.append(original_t_err.item())
+                
+            p_values_rot.append(p_value_rot)
+            # Add p-value to tqdm print
+            # tqdm.write(f"p-value: {p_value}")
+            p_values_t.append(p_value_t)
+            
+            
+        # Plot the histogram of p-values
+        selected_rot_err = np.random.choice(ori_rot_err, size=int(len(new_rot_err)), replace=False)
+        selected_t_err = np.random.choice(ori_t_err, size=int(len(new_t_err)), replace=False)
+
+        # plt.savefig('vis/TourismPhoto/'+args.sn+'_selected_rot_err.png')
+        print('Original Mean rotation error:', np.mean(ori_rot_err), 'Original Mean translation error:', np.mean(ori_t_err))
+        print('Randomly selected Mean rotation error:', np.mean(selected_rot_err), 'Randomly selected Mean translation error:', np.mean(selected_t_err))
+        print('New Mean rotation error:', np.mean(new_rot_err), 'New Mean translation error:', np.mean(new_t_err))
+        mean_rot_err.append(np.mean(new_rot_err))
+        random_prune_rot_err.append(np.mean(selected_rot_err))
+        mean_t_err.append(np.mean(new_t_err))
+        random_prune_t_err.append(np.mean(selected_t_err))
+    
+    plt.plot(p_set, mean_t_err, 'o-', color='b', label='Conformal')
+    plt.plot(p_set, random_prune_t_err,'x-', color='r', label='Random')
     plt.xlabel('p-value')
-    plt.ylabel('Frequency')
-    plt.title('Histogram of p-values')
-    plt.savefig('vis/TourismPhoto/p_values_relative/'+args.sn+'_p_values.png')
+    plt.ylabel('Mean Translation Error')
+    plt.title('Mean Translation Error vs p-value')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('vis/TourismPhoto/'+args.sn+'_mean_t_err.png')
+    # plt.hist(p_values, bins=10)
+    # plt.xlabel('p-value')
+    # plt.ylabel('Frequency')
+    # plt.title('Histogram of p-values')
+    # plt.savefig('vis/TourismPhoto/p_values_relative/'+args.sn+'_p_values.png')
