@@ -1,0 +1,1 @@
+python main_ori.py -d ~/Project/dataset/PhotoTourism/colosseum_exterior/ -l .dataset/PhotoTourism/10_scenes_train_data/ -s colosseum_exterior -f True
