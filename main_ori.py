@@ -211,10 +211,6 @@ if __name__ == '__main__':
     new_t_err = []
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
     
-    # # colmap data
-    # cameras, images, points = read_model(path='/home/runyi/Data/phototourism'+ args.sn + '/dense/sparse', ext='.bin')
-    # print()
-    # keypoint_detector = aliked_kpts.model_selection('aliked-n32',top_k=1000, device=device)
     p_set = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     mean_rot_err = []
     random_prune_rot_err = []
@@ -224,45 +220,15 @@ if __name__ == '__main__':
         p_values_rot = []
         p_values_t = []
         for i, minibatch in enumerate(tqdm(dataloader)):
-                
-            test_feature_rot = minibatch['feature_rot']
-            test_feature_t = minibatch['feature_t']
+            
             test_img = minibatch['img'].squeeze(0).detach().numpy()
             test_t_gt = minibatch['pose'][:, :3]
             test_t = minibatch['est_pose'][:, :3]
             test_q_gt = minibatch['pose'][:, 3:]
             test_q = minibatch['est_pose'][:, 3:]
             test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
+        
             
-            # rot_err = rotation_err(test_q, test_q_gt)
-            # p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
-            
-            target_cal_rot_path = find_most_similar_image(test_feature_rot, calibration_feature_rot, calibration_img_path)
-            target_cal_t_path = find_most_similar_image(test_feature_t, calibration_feature_t, calibration_img_path)
-            # target_cal_rot_path =dataset_path+target_cal_rot_path
-            
-            target_cal_rot_index = cal_set.img_paths.index(target_cal_rot_path)
-            target_cal_t_path = cal_set.img_paths.index(target_cal_t_path)
-
-            target_cal_img = imread(target_cal_rot_path)
-            target_cal_q = torch.tensor(cal_set.poses[target_cal_rot_index][3:]).unsqueeze(0)
-            target_cal_t = torch.tensor(cal_set.poses[target_cal_t_path][:3]).unsqueeze(0)
-            # try:
-            #     relative_pose = torch.tensor(find_poses(test_img, target_cal_img, 'sift', K))
-            #     relative_R = relative_pose[:3, :3]
-            #     relative_t = relative_pose[:3, 3]
-            #     adj_R = relative_R.T @ test_R
-            #     adj_q = compute_quaternions_from_rotation_matrices(adj_R.unsqueeze(0))
-            #     rot_err = rotation_err(target_cal_q, adj_q)
-            #     p_value = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
-            # # p_values.append(p_value)
-            # except:
-            #     print(target_cal_rot_path)
-            rot_err = rotation_err(target_cal_q, test_q)
-            t_err = translation_err(target_cal_t, test_t)
-            p_value_rot = (rot_err.item() <= calib_rot_nc).sum()/len(calib_rot_nc)
-            p_value_t = (t_err.item() <= calib_t_nc).sum()/len(calib_t_nc)
-            # p_value = icp_rot.compute_p_value_from_calibration_poses(test_q)
             
             original_rot_err = rotation_err(test_q, test_q_gt)
             original_t_err = translation_err(test_t, test_t_gt)
