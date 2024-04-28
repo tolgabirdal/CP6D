@@ -204,11 +204,6 @@ if __name__ == '__main__':
     icp_rot = ICP_ROT(torch.tensor(cal_set.poses[:, 3:]), torch.tensor(cal_set.pred_poses[:, 3:]))
     calib_rot_nc = icp_rot.compute_non_conformity_scores()
     calib_t_nc = translation_err(torch.tensor(cal_set.poses[:, :3]), torch.tensor(cal_set.pred_poses[:, :3]))
-    # print(calib_rot_nc)
-    ori_rot_err = []
-    new_rot_err = []
-    ori_t_err = []
-    new_t_err = []
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
     
     p_set = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -228,46 +223,10 @@ if __name__ == '__main__':
             test_q = minibatch['est_pose'][:, 3:]
             test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
         
-            
-            
             original_rot_err = rotation_err(test_q, test_q_gt)
             original_t_err = translation_err(test_t, test_t_gt)
             ori_rot_err.append(original_rot_err.item())
             ori_t_err.append(original_t_err.item())
-            if p_value_rot >= p:
-                new_rot_err.append(original_rot_err.item())
-            if p_value_t >= p:
-                new_t_err.append(original_t_err.item())
-                
-            p_values_rot.append(p_value_rot)
-            # Add p-value to tqdm print
-            # tqdm.write(f"p-value: {p_value}")
-            p_values_t.append(p_value_t)
-            
-            
-        # Plot the histogram of p-values
-        selected_rot_err = np.random.choice(ori_rot_err, size=int(len(new_rot_err)), replace=False)
-        selected_t_err = np.random.choice(ori_t_err, size=int(len(new_t_err)), replace=False)
 
-        # plt.savefig('vis/TourismPhoto/'+args.sn+'_selected_rot_err.png')
-        print('Original Mean rotation error:', np.mean(ori_rot_err), 'Original Mean translation error:', np.mean(ori_t_err))
-        print('Randomly selected Mean rotation error:', np.mean(selected_rot_err), 'Randomly selected Mean translation error:', np.mean(selected_t_err))
-        print('New Mean rotation error:', np.mean(new_rot_err), 'New Mean translation error:', np.mean(new_t_err))
-        mean_rot_err.append(np.mean(new_rot_err))
-        random_prune_rot_err.append(np.mean(selected_rot_err))
-        mean_t_err.append(np.mean(new_t_err))
-        random_prune_t_err.append(np.mean(selected_t_err))
-    
-    plt.plot(p_set, mean_t_err, 'o-', color='b', label='Conformal')
-    plt.plot(p_set, random_prune_t_err,'x-', color='r', label='Random')
-    plt.xlabel('p-value')
-    plt.ylabel('Mean Translation Error')
-    plt.title('Mean Translation Error vs p-value')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('vis/TourismPhoto/'+args.sn+'_mean_t_err.png')
-    # plt.hist(p_values, bins=10)
-    # plt.xlabel('p-value')
-    # plt.ylabel('Frequency')
-    # plt.title('Histogram of p-values')
-    # plt.savefig('vis/TourismPhoto/p_values_relative/'+args.sn+'_p_values.png')
+            # Let's Conformal Predict
+            
