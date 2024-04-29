@@ -145,17 +145,27 @@ class Inductive_Conformal_Predcition:
             raise ValueError("Invalid mode. Please choose from 'Rot', 'Trans' and 'Combine'")
         return nc_scores
     
-    def compute_p_value_from_calibration_poses(self, nc_score, new_pose):
-        
-        
+    def compute_p_value_from_calibration_poses(self, nc_score, new_pose, p=0.5):
+        new_pose_q = new_pose[:, 3:]
+        new_pose_t = new_pose[:, :3]
  
         # Compute the non-conformity score for the new_pose compared to all calibration poses
-        new_pose_nc_scores = rot_err(new_pose.repeat(self.gt.shape[0],1), self.gt).squeeze()
+        new_pose_nc_scores_rot = rot_err_q(new_pose_q.repeat(self.gt.shape[0],1), self.gt_rot).squeeze()
+        new_pose_nc_scores_trans = translation_err(new_pose_t.repeat(self.gt.shape[0],1), self.gt_trans).squeeze()
         
-        # Vectorize the comparison of new_pose's non-conformity scores against the calibration set
-        counts = (self.non_conformity_scores >= new_pose_nc_scores).sum()
+        if self.mode == "Rot":
+            new_pose_nc_scores = new_pose_nc_scores_rot
+        elif self.mode == "Trans":
+            new_pose_nc_scores = new_pose_nc_scores_trans
+        elif self.mode == "Combine":
+            new_pose_nc_scores = new_pose_nc_scores_rot + self.rate * new_pose
+        else:
+            raise ValueError("Invalid mode. Please choose from 'Rot','Trans' and 'Combine'")
         
-        # Calculate p-values for the new_pose based on the calibration non-conformity scores
-        p_values = counts.float() / (self.gt.shape[0] + 1)
-        
-        return p_values
+        pred_region = []
+        for idx, new_nc_score in enumerate(new_pose_nc_scores):
+            p_value = (nc_score >= new_nc_score).float().mean()
+            if p_value >= p:
+                pred_region.append(idx)
+            print("P-value: ", p_value)
+        return pred_region
