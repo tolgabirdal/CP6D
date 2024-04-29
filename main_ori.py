@@ -3,7 +3,7 @@ import torch
 import scipy
 import pandas as pd
 import matplotlib.pyplot as plt
-from icp import ICP_ROT
+from icp import Inductive_Conformal_Predcition as ICP
 from nc_score import pose_err
 from tqdm import tqdm
 import tools
@@ -194,14 +194,16 @@ if __name__ == '__main__':
     test_labels_file = args.label_file+args.sn+'_test.csv_results.csv'
     if args.feature is not None:
         calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file(args.label_file+args.sn+'_val.csv_results.npz')
+        calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
+
 
     cal_set = CameraPoseDatasetPred(args.data_path, cal_labels_file, load_npz=True)
     test_set = CameraPoseDatasetPred(args.data_path, test_labels_file, load_npz=True)
     
-    calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
-
+    
     # calib non-conformity
-    icp_rot = ICP_ROT(torch.tensor(cal_set.poses[:, 3:]), torch.tensor(cal_set.pred_poses[:, 3:]))
+    icp = ICP(torch.tensor(cal_set.poses), torch.tensor(cal_set.pred_poses))
+    embed()
     calib_rot_nc = icp_rot.compute_non_conformity_scores()
     calib_t_nc = translation_err(torch.tensor(cal_set.poses[:, :3]), torch.tensor(cal_set.pred_poses[:, :3]))
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
@@ -211,22 +213,15 @@ if __name__ == '__main__':
     random_prune_rot_err = []
     mean_t_err = []
     random_prune_t_err = []
-    for p in p_set:
-        p_values_rot = []
-        p_values_t = []
-        for i, minibatch in enumerate(tqdm(dataloader)):
-            
-            test_img = minibatch['img'].squeeze(0).detach().numpy()
-            test_t_gt = minibatch['pose'][:, :3]
-            test_t = minibatch['est_pose'][:, :3]
-            test_q_gt = minibatch['pose'][:, 3:]
-            test_q = minibatch['est_pose'][:, 3:]
-            test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
+    # for p in p_set:
+    #     p_values_rot = []
+    #     p_values_t = []
+    for i, minibatch in enumerate(tqdm(dataloader)):
         
-            original_rot_err = rotation_err(test_q, test_q_gt)
-            original_t_err = translation_err(test_t, test_t_gt)
-            ori_rot_err.append(original_rot_err.item())
-            ori_t_err.append(original_t_err.item())
-
-            # Let's Conformal Predict
-            
+        test_img = minibatch['img'].squeeze(0).detach().numpy()
+        test_t_gt = minibatch['pose'][:, :3]
+        test_t = minibatch['est_pose'][:, :3]
+        test_q_gt = minibatch['pose'][:, 3:]
+        test_q = minibatch['est_pose'][:, 3:]
+        test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
+        
