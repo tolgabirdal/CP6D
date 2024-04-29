@@ -202,10 +202,9 @@ if __name__ == '__main__':
     
     
     # calib non-conformity
-    icp = ICP(torch.tensor(cal_set.poses), torch.tensor(cal_set.pred_poses))
-    embed()
-    calib_rot_nc = icp_rot.compute_non_conformity_scores()
-    calib_t_nc = translation_err(torch.tensor(cal_set.poses[:, :3]), torch.tensor(cal_set.pred_poses[:, :3]))
+    icp = ICP(torch.tensor(cal_set.poses), torch.tensor(cal_set.pred_poses), mode='Rot')
+    
+
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
     
     p_set = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -224,4 +223,5 @@ if __name__ == '__main__':
         test_q_gt = minibatch['pose'][:, 3:]
         test_q = minibatch['est_pose'][:, 3:]
         test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
-        
+        test_pose = minibatch['est_pose']
+        icp.compute_p_value_from_calibration_poses(test_pose, p=0.5)
