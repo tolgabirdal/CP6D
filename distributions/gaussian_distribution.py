@@ -17,33 +17,32 @@ class GaussianUncertainty():
         self.new_pose = torch.tensor(new_pose, dtype=torch.float32)
         self.new_pose_normalized = (self.new_pose - self.mean) / self.std
         
+        # Ensure the new_pose_normalized is flattened (if necessary)
+        if self.new_pose_normalized.ndim > 1:
+            self.new_pose_normalized = self.new_pose_normalized.flatten()
+        
         # Calculate the covariance matrix of the normalized prediction region
         self.cov = torch.cov(self.pred_region_normalized.T)  # Ensure correct dimensionality for covariance
 
-    def compute_gaussian_uncertainty(self):
-        # Regularization term: small value added to the diagonal
+    def compute_entropy(self):
+        # Regularization term: small value added to the diagonal to ensure the matrix is invertible
         epsilon = 1e-5
         regularized_cov = self.cov + torch.eye(self.cov.shape[0]) * epsilon
         
-        # Inverting the covariance matrix with regularization
-        cov_inv = torch.linalg.inv(regularized_cov)
+        # Calculate determinant of the covariance matrix
+        det_cov = torch.det(regularized_cov)
         
-        # Difference between new normalized pose and zero (mean of normalized data)
-        diff = self.new_pose_normalized
+        # Number of dimensions (should be 3 for tx, ty, tz)
+        n = regularized_cov.shape[0]
         
-        # Computing Mahalanobis distance
-        mahalanobis_distance = torch.sqrt(torch.dot(diff, torch.mv(cov_inv, diff)))
-        return mahalanobis_distance
-
-    def compute_uncertainty_score(self, decay_rate):
-        distance = self.compute_gaussian_uncertainty()
-        score = torch.exp(-decay_rate * distance)
-        return 1. - score.item()
+        # Compute entropy
+        entropy = 0.5 * torch.log((2 * np.pi * np.e) ** n * det_cov)
+        
+        return entropy.item()
 
 # Example usage:
 pred_region = [[1, 2, 3], [2, 3, 3], [3, 4, 5]]  # Example dataset
-new_pose = [2, 3, 3]  # New pose to evaluate
-decay_rate = 0.1  # Example decay rate, adjust based on data characteristics
+new_pose = [[2, 3, 3]]  # New pose to evaluate
 gu = GaussianUncertainty(pred_region, new_pose)
-uncertainty_score = gu.compute_uncertainty_score(decay_rate)
-print("Uncertainty Score:", uncertainty_score)
+entropy = gu.compute_entropy()
+print("Entropy (Measure of Uncertainty):", entropy)
