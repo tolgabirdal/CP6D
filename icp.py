@@ -173,7 +173,7 @@ class Inductive_Conformal_Predcition:
         pred_region = []
         for idx, new_nc_score in enumerate(new_pose_nc_scores):
             p_value = (self.nc_scores >= new_nc_score).float().mean()
-            print("P-value: ", p_value)
+            # print("P-value: ", p_value)
             if p_value >= p:
                 pred_region.append(idx)
         # print("P-value Num: ", len(pred_region))

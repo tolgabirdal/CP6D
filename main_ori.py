@@ -206,30 +206,57 @@ if __name__ == '__main__':
     
     
     # calib non-conformity
-    icp = ICP(cal_poses, cal_poses, mode='Rot')
+    icp = ICP(cal_poses, cal_pred_poses, mode='Trans')
     GU = GaussianUncertainty(tmean, tstd)
 
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
     
-    p_set = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    uncertainty_sets = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     mean_rot_err = []
     random_prune_rot_err = []
     mean_t_err = []
     random_prune_t_err = []
-    # for p in p_set:
+    
+    for uncertainty_set in uncertainty_sets:
     #     p_values_rot = []
     #     p_values_t = []
-    for i, minibatch in enumerate(tqdm(dataloader)):
+        ori_rot_err = []
+        new_rot_err = []
+        ori_t_err = []
+        new_t_err = []
         
-        test_img = minibatch['img'].squeeze(0).detach().numpy()
-        test_t_gt = minibatch['pose'][:, :3]
-        test_t = minibatch['est_pose'][:, :3]
-        test_q_gt = minibatch['pose'][:, 3:]
-        test_q = minibatch['est_pose'][:, 3:]
-        test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
-        test_pose = minibatch['est_pose']
-        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=0.5)
-        pred_region = cal_poses[pred_region_idx_cal]
-        embed()
-        break
+        for i, minibatch in enumerate(tqdm(dataloader)):
+            
+            test_img = minibatch['img'].squeeze(0).detach().numpy()
+            test_t_gt = minibatch['pose'][:, :3]
+            test_t = minibatch['est_pose'][:, :3]
+            test_q_gt = minibatch['pose'][:, 3:]
+            test_q = minibatch['est_pose'][:, 3:]
+            test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
+            test_pose = minibatch['est_pose']
+            pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=0.3)
+            pred_region = cal_poses[pred_region_idx_cal]
+            if pred_region_idx_cal is None:
+                continue
+            uncertainty = GU.compute_uncertainty_score(pred_region[:, :3], test_t, decay_rate=0.1)
+            t_err = translation_err(test_t, test_t_gt)
+            ori_t_err.append(t_err.item())
+            if uncertainty < uncertainty_set:
+                new_t_err.append(t_err.item())
         
+        print("Uncertainty Set: ", uncertainty_set, len(new_t_err))
+        ori_random_t_err = np.random.choice(ori_t_err, size=int(len(new_t_err)), replace=False)
+        mean_t_err.append(np.mean(new_t_err))
+        random_prune_t_err.append(np.mean(ori_random_t_err))
+        print("Uncertainty Set: ", uncertainty_set, "Mean Translation Error: ", np.mean(new_t_err), "Random Prune Translation Error: ", np.mean(ori_random_t_err), "Original Translation Error: ", np.mean(ori_t_err), "Total: ", len(ori_t_err))
+
+    plt.plot(uncertainty_sets, mean_t_err, 'o-', color='b', label='Conformal Translation Error')
+    plt.plot(uncertainty_sets, random_prune_t_err, 'x-', color='r', label='Random Prune Translation Error')
+    plt.axhline(y=np.mean(ori_t_err), color='g', linestyle='--', label='Original Translation Error')
+    plt.xlabel('Confidence Level')
+    plt.ylabel('Mean Translation Error')
+    plt.title('Mean Translation Error')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('vis/TourismPhoto/real_conformal_t/'+args.sn+'_mean_t_err.png')
+   
