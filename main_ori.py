@@ -4,6 +4,7 @@ import scipy
 import pandas as pd
 import matplotlib.pyplot as plt
 from icp import Inductive_Conformal_Predcition as ICP
+from distributions.gaussian_distribution import GaussianUncertainty
 from nc_score import pose_err
 from tqdm import tqdm
 import tools
@@ -199,11 +200,14 @@ if __name__ == '__main__':
 
     cal_set = CameraPoseDatasetPred(args.data_path, cal_labels_file, load_npz=True)
     test_set = CameraPoseDatasetPred(args.data_path, test_labels_file, load_npz=True)
+    cal_poses = torch.tensor(cal_set.poses)
+    cal_pred_poses = torch.tensor(cal_set.pred_poses)
+    tmean, tstd = torch.mean(cal_poses[:, :3], dim=0), torch.std(cal_poses[:, :3], dim=0)
     
     
     # calib non-conformity
-    icp = ICP(torch.tensor(cal_set.poses), torch.tensor(cal_set.pred_poses), mode='Rot')
-    
+    icp = ICP(cal_poses, cal_poses, mode='Rot')
+    GU = GaussianUncertainty(tmean, tstd)
 
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
     
@@ -224,4 +228,8 @@ if __name__ == '__main__':
         test_q = minibatch['est_pose'][:, 3:]
         test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
         test_pose = minibatch['est_pose']
-        icp.compute_p_value_from_calibration_poses(test_pose, p=0.5)
+        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=0.5)
+        pred_region = cal_poses[pred_region_idx_cal]
+        embed()
+        break
+        
