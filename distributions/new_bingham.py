@@ -174,7 +174,6 @@ class BinghamDistribution:
         
 
         bingham_optimal_lambda = minimize(objective, lambdas, method='Nelder-Mead', tol=1e-7)
-        embed(header='2')
         self.lambdas = bingham_optimal_lambda.x
         self.F_const = self.bingham_normalization(self.lambdas)
         self.dF_const = self.bingham_normalization_derivative(self.lambdas)
@@ -225,7 +224,6 @@ if __name__ == '__main__':
     q = q/np.linalg.norm(q)
     q = np.vstack([q, q])
     bingham.fit(q)
-    embed(header='3')
     
     
         

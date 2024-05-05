@@ -16,10 +16,10 @@ class GaussianUncertainty():
         if len(pred_region) == 0 or len(pred_region) == 1:
             return 1.
         # Normalize prediction region
-        pred_region_normalized = pred_region
+        pred_region_normalized = self.normalize_data(pred_region)
         
         # Assuming new_pose is already a tensor when passed to the function
-        new_pose_normalized = new_pose
+        new_pose_normalized = self.normalize_data(new_pose)
 
         # Calculate the covariance matrix of the normalized prediction region
         cov = torch.cov(pred_region_normalized.T)  # Ensure correct dimensionality for covariance
@@ -39,7 +39,7 @@ class GaussianUncertainty():
         diff = new_pose_normalized
         mahalanobis_distance = torch.sqrt(torch.dot(diff, torch.mv(cov_inv, diff)))
         # Calculate the uncertainty score using exponential decay
-        score = 1. - torch.exp(-decay_rate * mahalanobis_distance)
+        score = 2. / (1. + torch.exp(-decay_rate * mahalanobis_distance)) - 1.
         return score.item()
 
 # Example usage:
