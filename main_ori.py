@@ -258,12 +258,12 @@ if __name__ == '__main__':
             test_q = minibatch['est_pose'][:, 3:]
             test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
             test_pose = minibatch['est_pose']
-            pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=0.3)
+            pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=0.1)
             pred_region = cal_poses[pred_region_idx_cal]
 
             if pred_region_idx_cal is None:
                 continue
-            uncertainty = GU.compute_uncertainty_score(pred_region[:, :3], test_t, decay_rate=0.1)
+            uncertainty = GU.compute_uncertainty_score(pred_region[:, :3], test_t, decay_rate=0.01)
             # print(uncertainty)
             t_err = translation_err(test_t, test_t_gt)
             ori_t_err.append(t_err.item())
