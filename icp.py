@@ -93,7 +93,7 @@ def translation_err(est_pose, gt_pose):
 
     
 class Inductive_Conformal_Predcition:
-    def __init__(self, gt, pred, mode, rate=None):
+    def __init__(self, gt, pred, mode, trans_norm=None, rate=None):
         """
         Initialize the ICP_ROT class.
 
@@ -104,6 +104,14 @@ class Inductive_Conformal_Predcition:
                                 where n is the number of samples and m is the number of features.
         """
         super(Inductive_Conformal_Predcition, self).__init__()
+        if trans_norm is not None:
+            self.tmax = trans_norm[0]
+            self.tmin = trans_norm[1]
+            pred[:, :3] = (pred[:, :3] - self.tmin) / (self.tmax - self.tmin)
+            gt[:, :3] = (gt[:, :3] - self.tmin) / (self.tmax - self.tmin)
+            self.trans_norm = trans_norm
+        else:
+            self.trans_norm = None
         self.gt = gt
         self.pred = pred
         self.gt_rot = gt[:, 3:]
@@ -117,6 +125,7 @@ class Inductive_Conformal_Predcition:
         self.trans_err = translation_err
         self.mode = mode
         self.rate = rate
+        
         
         self.nc_scores = None
         self.non_conformity_scores = None
@@ -151,17 +160,22 @@ class Inductive_Conformal_Predcition:
         
         self.nc_scores = nc_scores
     
-    def compute_p_value_from_calibration_poses(self, new_pose, p=0.5):
+    def compute_p_value_from_calibration_poses(self, new_pose, topk=5):
         if self.nc_scores == None:
             self.compute_nc_scores()
         new_pose_q = new_pose[:, 3:]
         new_pose_t = new_pose[:, :3]
+        if self.trans_norm is not None:
+            new_pose_t = (new_pose_t - self.tmin) / (self.tmax - self.tmin)
+        
  
         # Compute the non-conformity score for the new_pose compared to all calibration poses
         new_pose_nc_scores_rot = rot_err_q(new_pose_q.repeat(self.gt.shape[0],1), self.gt_rot).squeeze()
         new_pose_nc_scores_trans = translation_err(new_pose_t.repeat(self.gt.shape[0],1), self.gt_trans).squeeze()
         
+        
         if self.mode == "Rot":
+            
             new_pose_nc_scores = new_pose_nc_scores_rot
         elif self.mode == "Trans":
             new_pose_nc_scores = new_pose_nc_scores_trans
@@ -171,10 +185,13 @@ class Inductive_Conformal_Predcition:
             raise ValueError("Invalid mode. Please choose from 'Rot','Trans' and 'Combine'")
         
         pred_region = []
+        p_values = []
         for idx, new_nc_score in enumerate(new_pose_nc_scores):
             p_value = (self.nc_scores >= new_nc_score).float().mean()
             # print("P-value: ", p_value)
-            if p_value >= p:
-                pred_region.append(idx)
+            p_values.append(p_value)
+        # Get topk p_values corredsponding indices
+        p_values = np.array(p_values)
+        pred_region = np.argsort(p_values)[::-1][:topk]
         # print("P-value Num: ", len(pred_region))
-        return pred_region
+        return pred_region.tolist()

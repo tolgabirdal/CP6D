@@ -203,6 +203,26 @@ def fit_bingham_distribution(quaternions):
     lambdas -= lambdas.min()
     return eigenvectors, lambdas
 
+def get_pred_region(icp, test_data_loader, Uncertainty_model, p=0.15):
+    
+    for i, minibatch in enumerate(tqdm(test_data_loader)):
+        test_img = minibatch['img'].squeeze(0).detach().numpy()
+        test_t_gt = minibatch['pose'][:, :3]
+        test_t = minibatch['est_pose'][:, :3]
+        test_q_gt = minibatch['pose'][:, 3:]
+        test_q = minibatch['est_pose'][:, 3:]
+        test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
+        test_pose = minibatch['est_pose']
+        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=p)
+        pred_region = cal_poses[pred_region_idx_cal]
+        uncertainty = Uncertainty_model.compute_uncertainty_score_entropy(pred_region[:, :3])
+        t_err = translation_err(test_t, test_t_gt)
+        ori_t_err.append(t_err.item())
+        if uncertainty < uncertainty_set:
+            new_t_err.append(t_err.item())
+    
+
+
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-d", "--data_path", help="dataset path, e.g. /home/runyi/Data/phototourism")
@@ -258,12 +278,12 @@ if __name__ == '__main__':
             test_q = minibatch['est_pose'][:, 3:]
             test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
             test_pose = minibatch['est_pose']
-            pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=0.1)
+            pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=0.15)
             pred_region = cal_poses[pred_region_idx_cal]
 
             if pred_region_idx_cal is None:
                 continue
-            uncertainty = GU.compute_uncertainty_score(pred_region[:, :3], test_t, decay_rate=0.01)
+            uncertainty = GU.compute_uncertainty_score_entropy(pred_region[:, :3])
             # print(uncertainty)
             t_err = translation_err(test_t, test_t_gt)
             ori_t_err.append(t_err.item())

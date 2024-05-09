@@ -43,7 +43,14 @@ class GaussianUncertainty():
         # Calculate the uncertainty score using exponential decay
         score = 2. / (1. + torch.exp(-decay_rate * mahalanobis_distance)) - 1.
         return score.item()
-
+    def compute_uncertainty_score_entropy(self, pred_region):
+        if len(pred_region) == 0 or len(pred_region) == 1:
+            return 1.
+        # pred_region = self.normalize_data(pred_region)
+        cov = torch.cov(pred_region.T)
+        entropy = 3 / 2 + 3 / 2 * torch.log(2 * torch.tensor(torch.pi)) + 1 / 2 * torch.log(torch.det(cov))
+        uncertainty = 1 / (1 + torch.exp(-entropy)) # sigmoid
+        return uncertainty
 # Example usage:
 if __name__ == '__main__':
     mean = torch.tensor([2, 3, 4])  # Precomputed mean of the data

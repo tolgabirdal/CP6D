@@ -140,7 +140,7 @@ class BinghamDistribution(object):
 
         if len(data.shape) == 1:
             data = np.array([data])
-        assert len(data.shape) == 2 and data.shape[1] == self._dim, \
+        assert len(data.shape) == 2 and data.shapsshe[1] == self._dim, \
             "Sample dimension does not agree with distribution dimension."
 
         # Here, the Bingham distribution parametrization we use is
