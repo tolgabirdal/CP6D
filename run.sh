@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# python main.py --sn office &
-# python main.py --sn chess &
-# python main.py --sn heads &
-# python main.py --sn redkitchen &
-python main.py --sn pumpkin &
-python main.py --sn stairs &
-python main.py --sn fire
+# python main_ori.py -r ~/Data/ -d 7Scenes -l ./dataset/7Scenes_0.5/ -s chess -f False conformal &
+# python main_ori.py -r ~/Data/ -d 7Scenes -l ./dataset/7Scenes_0.5/ -s fire -f False conformal &
+# python main_ori.py -r ~/Data/ -d 7Scenes -l ./dataset/7Scenes_0.5/ -s office -f False conformal &
+# python main_ori.py -r ~/Data/ -d 7Scenes -l ./dataset/7Scenes_0.5/ -s heads -f False conformal &
+# python main_ori.py -r ~/Data/ -d 7Scenes -l ./dataset/7Scenes_0.5/ -s pumpkin -f False conformal &
+# python main_ori.py -r ~/Data/ -d 7Scenes -l ./dataset/7Scenes_0.5/ -s redkitchen -f False conformal &
+# python main_ori.py -r ~/Data/ -d 7Scenes -l ./dataset/7Scenes_0.5/ -s stairs -f False conformal &
 
-# python main.py --sn KingsCollege &
-# python main.py --sn OldHospital &
-# python main.py --sn ShopFacade &
-# python main.py --sn StMarysChurch &
+python main_ori.py -r ~/Data/ -d CambridgeLandmarks -l ./dataset/CambridgeLandmarks_0.5/ -s KingsCollege -f False conformal &
+python main_ori.py -r ~/Data/ -d CambridgeLandmarks -l ./dataset/CambridgeLandmarks_0.5/ -s OldHospital -f False conformal &
+python main_ori.py -r ~/Data/ -d CambridgeLandmarks -l ./dataset/CambridgeLandmarks_0.5/ -s ShopFacade -f False conformal &
+python main_ori.py -r ~/Data/ -d CambridgeLandmarks -l ./dataset/CambridgeLandmarks_0.5/ -s StMarysChurch -f False conformal &

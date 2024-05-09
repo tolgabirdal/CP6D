@@ -13,7 +13,7 @@ import argparse
 from dataset.CameraPoseDataset import CameraPoseDatasetPred
 from skimage.io import imread
 import cv2
-from Keypoint.ALIKED import aliked_kpts
+# from Keypoint.ALIKED import aliked_kpts
 import torch.nn.functional as F
 import torch_bingham
 from IPython import embed
@@ -203,29 +203,50 @@ def fit_bingham_distribution(quaternions):
     lambdas -= lambdas.min()
     return eigenvectors, lambdas
 
-def get_pred_region(icp, test_data_loader, Uncertainty_model, p=0.15):
-    
+def get_pred_region(icp, test_data_loader, GU):
+    pred_regions = []
+    origin_trans_errs = []
+    origin_rot_errs = []
+    test_gt_poses = []
+    test_pred_poses = []
+    uncertainties = []
     for i, minibatch in enumerate(tqdm(test_data_loader)):
-        test_img = minibatch['img'].squeeze(0).detach().numpy()
+        # test_img = minibatch['img'].squeeze(0).detach().numpy()
         test_t_gt = minibatch['pose'][:, :3]
         test_t = minibatch['est_pose'][:, :3]
         test_q_gt = minibatch['pose'][:, 3:]
         test_q = minibatch['est_pose'][:, 3:]
-        test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
+        
+        test_gt_poses.append(minibatch['pose'])
+        test_pred_poses.append(minibatch['est_pose'])
+        # test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
         test_pose = minibatch['est_pose']
-        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=p)
+        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, topk=5)
+
+        # print(pred_region_idx_cal)
         pred_region = cal_poses[pred_region_idx_cal]
-        uncertainty = Uncertainty_model.compute_uncertainty_score_entropy(pred_region[:, :3])
-        t_err = translation_err(test_t, test_t_gt)
-        ori_t_err.append(t_err.item())
-        if uncertainty < uncertainty_set:
-            new_t_err.append(t_err.item())
+        uncertainty = GU.compute_uncertainty_score_entropy(pred_region[:, :3])
+        
+        uncertainties.append(uncertainty)
+        pred_regions.append(pred_region)
+        origin_trans_errs.append(translation_err(test_t, test_t_gt))
+        origin_rot_errs.append(rotation_err(test_q, test_q_gt))
+        
+    return {
+        'test_gt': test_gt_poses,
+        'test_pred': test_pred_poses,
+        'pred_regions': pred_regions,
+        'Trans_Err': torch.tensor(origin_trans_errs),
+        'Rot_Err': torch.tensor(origin_rot_errs),
+        'uncertainties': torch.tensor(uncertainties)
+    }
     
 
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("-d", "--data_path", help="dataset path, e.g. /home/runyi/Data/phototourism")
+    arg_parser.add_argument("-r", "--root_path", help="dataset root path, e.g. /home/runyi/Data/")
+    arg_parser.add_argument("-d", "--data", help="dataset, e.g. 7Scenes, PhotoTourism, CambridgeLandmarks")
     arg_parser.add_argument("-l", "--label_file", help="label files dir, /home/runyi/Project/TBCP6D/dataset/PhotoTourism/")
     arg_parser.add_argument("-s", "--sn", help="name of scenes e.g. chess, fire")
     arg_parser.add_argument("-f", "--feature", help="if you need feature")
@@ -233,25 +254,41 @@ if __name__ == '__main__':
     args = arg_parser.parse_args()
     
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    cal_labels_file = args.label_file + args.sn + '_val.csv_results.csv'
-    test_labels_file = args.label_file+args.sn+'_test.csv_results.csv'
-    if args.feature is not None:
-        calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file(args.label_file+args.sn+'_val.csv_results.npz')
-        calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
+    
+    if args.data == "7Scenes":
+        args.sn = 'abs_7scenes_pose.csv_' + args.sn
+        final_cal = '_cal.csv_results.csv'
+        final_test = '_test.csv_results.csv'
+    elif args.data == "CambridgeLandmarks":
+        args.sn = 'abs_cambridge_pose_sorted.csv_' + args.sn
+        final_cal = '_cal.csv_results.csv'
+        final_test = '_test.csv_results.csv'
+    elif args.data == "PhotoTourism":
+        final_cal = '_val.csv_results.csv'
+        final_test = '_test.csv_results.csv'
+        
+    cal_labels_file = args.label_file + args.sn + final_cal
+    test_labels_file = args.label_file + args.sn + final_test
+    # if args.feature is not None:
+    #     calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file(args.label_file+args.sn+'_val.csv_results.npz')
+    #     calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
 
-
-    cal_set = CameraPoseDatasetPred(args.data_path, cal_labels_file, load_npz=True)
-    test_set = CameraPoseDatasetPred(args.data_path, test_labels_file, load_npz=True)
+    data_path = args.root_path + args.data + '/'
+    cal_set = CameraPoseDatasetPred(data_path, cal_labels_file, load_npz=False)
+    test_set = CameraPoseDatasetPred(data_path, test_labels_file, load_npz=False)
     cal_poses = torch.tensor(cal_set.poses)
     cal_pred_poses = torch.tensor(cal_set.pred_poses)
-    tmean, tstd = torch.mean(cal_poses[:, :3], dim=0), torch.std(cal_poses[:, :3], dim=0)
+    tmean, tstd, tmax, tmin = torch.mean(cal_poses[:, :3], dim=0), torch.std(cal_poses[:, :3], dim=0), torch.max(cal_poses[:, :3], dim=0)[0], torch.min(cal_poses[:, :3], dim=0)[0]
+    # cal_poses[:, :3] = (cal_poses[:, :3] - tmin) / (tmax - tmin)
+    # cal_pred_poses[:, :3] = (cal_pred_poses[:, :3] - tmin) / (tmax - tmin)
     
     
     # calib non-conformity
     icp = ICP(cal_poses, cal_pred_poses, mode='Trans')
-    GU = GaussianUncertainty(tmean, tstd)
+    GU = GaussianUncertainty(args.data)
 
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
+    
     
     
     uncertainty_sets = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
@@ -261,54 +298,41 @@ if __name__ == '__main__':
     random_prune_t_err = []
     num_effiect_samples = []
     
+    pred_data = get_pred_region(icp, dataloader, GU)
+    ori_t_err = pred_data['Trans_Err']
     for uncertainty_set in uncertainty_sets:
+        mask = (pred_data['uncertainties'] <= uncertainty_set)
+        # embed()
+        mean_t_err.append((pred_data['Trans_Err'] * mask).mean())
+        num_effiect_samples.append(mask.sum())
+        
+    
+    
     #     p_values_rot = []
     #     p_values_t = []
-        ori_rot_err = []
-        new_rot_err = []
-        ori_t_err = []
-        new_t_err = []
-        
-        for i, minibatch in enumerate(tqdm(dataloader)):
-            
-            test_img = minibatch['img'].squeeze(0).detach().numpy()
-            test_t_gt = minibatch['pose'][:, :3]
-            test_t = minibatch['est_pose'][:, :3]
-            test_q_gt = minibatch['pose'][:, 3:]
-            test_q = minibatch['est_pose'][:, 3:]
-            test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
-            test_pose = minibatch['est_pose']
-            pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, p=0.15)
-            pred_region = cal_poses[pred_region_idx_cal]
 
-            if pred_region_idx_cal is None:
-                continue
-            uncertainty = GU.compute_uncertainty_score_entropy(pred_region[:, :3])
-            # print(uncertainty)
-            t_err = translation_err(test_t, test_t_gt)
-            ori_t_err.append(t_err.item())
-            if uncertainty < uncertainty_set:
-                new_t_err.append(t_err.item())
-        
-        print("Uncertainty Set: ", uncertainty_set, len(new_t_err))
-        num_effiect_samples.append(len(new_t_err))
-        np.random.seed(42)
-        ori_random_t_err = np.random.choice(ori_t_err, size=int(len(new_t_err)), replace=False)
-        mean_t_err.append(np.mean(new_t_err))
-        random_prune_t_err.append(np.mean(ori_random_t_err))
-        print("Uncertainty Set: ", uncertainty_set, "Mean Translation Error: ", np.mean(new_t_err), "Random Prune Translation Error: ", np.mean(ori_random_t_err), "Original Translation Error: ", np.mean(ori_t_err), "Total: ", len(ori_t_err))
+
+    # embed()
+    #     print("Uncertainty Set: ", uncertainty_set, len(new_t_err))
+    #     num_effiect_samples.append(len(new_t_err))
+    #     np.random.seed(42)
+    #     ori_random_t_err = np.random.choice(ori_t_err, size=int(len(new_t_err)), replace=False)
+    #     mean_t_err.append(np.mean(new_t_err))
+    #     random_prune_t_err.append(np.mean(ori_random_t_err))
+    #     print("Uncertainty Set: ", uncertainty_set, "Mean Translation Error: ", np.mean(new_t_err), "Random Prune Translation Error: ", np.mean(ori_random_t_err), "Original Translation Error: ", np.mean(ori_t_err), "Total: ", len(ori_t_err))
 
     plt.figure(figsize=(10, 10))
     plt.subplot(2, 1, 1)
+    plt.title(args.data + ": " + args.sn)
     plt.plot(uncertainty_sets, mean_t_err, 'o-', color='b', label='Conformal Translation Error')
-    plt.plot(uncertainty_sets, random_prune_t_err, 'x-', color='r', label='Random Prune Translation Error')
-    plt.axhline(y=np.mean(ori_t_err), color='g', linestyle='--', label='Original Translation Error')
+    # plt.plot(uncertainty_sets, random_prune_t_err, 'x-', color='r', label='Random Prune Translation Error')
+    plt.axhline(y=ori_t_err.mean(), color='g', linestyle='--', label='Original Translation Error')
     plt.xlabel('Uncertainty Level')
     plt.ylabel('Mean Translation Error')
     for i, txt in enumerate(mean_t_err):
-        plt.annotate(f'{txt:.3f}', (uncertainty_sets[i], mean_t_err[i]), textcoords="offset points", xytext=(0,10), ha='center')
+        plt.annotate(f'{txt:.3f}', (uncertainty_sets[i], mean_t_err[i]), textcoords="offset points", xytext=(0,3), ha='center')
         
-    plt.annotate(f'{np.mean(ori_t_err):.3f}', xy=(1, np.mean(ori_t_err)), textcoords="offset points", xytext=(0,10), ha='right', color='g')
+    plt.annotate(f'{ori_t_err.mean():.3f}', xy=(0.1, ori_t_err.mean()), textcoords="offset points", xytext=(0,3), ha='right', color='g')
     # plt.title('Mean Translation Error')
     # plt.legend()
     # plt.tight_layout()
@@ -316,19 +340,18 @@ if __name__ == '__main__':
 
     plt.subplot(2, 1, 2)
     # Plot the length of new_t_err
-    plt.plot(uncertainty_sets, num_effiect_samples, 'o-', color='m', label='Length of new_t_err')
+    plt.plot(uncertainty_sets, num_effiect_samples, 'o-', color='m', label='Length of Valid Poses')
     plt.axhline(y=len(ori_t_err), color='g', linestyle='--', label='Total Samples')
     # Add labels and title
     plt.xlabel('Uncertainty Level')
     plt.ylabel('Num of Valid Predictions')
     for i, txt in enumerate(num_effiect_samples):
         plt.annotate(f'{txt}', (uncertainty_sets[i], num_effiect_samples[i]), textcoords="offset points", xytext=(0,3), ha='center')
-    plt.annotate(f'{len(ori_t_err)}', xy=(1, len(ori_t_err)), textcoords="offset points", xytext=(0,3), ha='right', color='g')
+    plt.annotate(f'{len(ori_t_err)}', xy=(0.1, len(ori_t_err)), textcoords="offset points", xytext=(0,3), ha='right', color='g')
     # plt.title('Length of new_t_err')
     # Add legend
     plt.legend()
     # Adjust the layout
     plt.tight_layout()
     # Save the figure
-    plt.savefig('vis/TourismPhoto/real_conformal_t/'+args.sn+args.exp+'_mean_t_err_and_length.png')
-   
+    plt.savefig('vis_conformal_t/'+ args.data + '/' + args.sn+ '_' + args.exp + '.png')

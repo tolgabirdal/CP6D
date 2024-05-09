@@ -1,30 +1,17 @@
 import torch
 from IPython import embed
 class GaussianUncertainty():
-    def __init__(self, mean, std) -> None:
+    def __init__(self, dataset) -> None:
         super(GaussianUncertainty, self).__init__()
         
-        # Store the mean and standard deviation as tensors
-        self.mean = torch.tensor(mean, dtype=torch.float32)
-        self.std = torch.tensor(std, dtype=torch.float32)
-
-    def normalize_data(self, data):
-        """ Normalize data using the predefined mean and std. """
-        return (data - self.mean) / self.std
+        self.dataset = dataset
 
     def compute_uncertainty_score(self, pred_region, new_pose, decay_rate=0.01):
-        if len(pred_region) == 0 or len(pred_region) == 1:
-            return 1.
-        # Normalize prediction region
-        # pred_region_normalized = self.normalize_data(pred_region)
-        pred_region_normalized = pred_region
-        
-        # Assuming new_pose is already a tensor when passed to the function
-        # new_pose_normalized = self.normalize_data(new_pose)
-        new_pose_normalized = new_pose
+        # if len(pred_region) == 0 or len(pred_region) == 1:
+        #     return 1.
 
         # Calculate the covariance matrix of the normalized prediction region
-        cov = torch.cov(pred_region_normalized.T)  # Ensure correct dimensionality for covariance
+        cov = torch.cov(pred_region.T)  # Ensure correct dimensionality for covariance
         
         # Regularization term: small value added to the diagonal to prevent singularity
         epsilon = 1e-5
@@ -34,19 +21,20 @@ class GaussianUncertainty():
         cov_inv = torch.linalg.inv(regularized_cov)
         
         # Flatten the new_pose_normalized if necessary
-        if new_pose_normalized.ndim > 1:
-            new_pose_normalized = new_pose_normalized.flatten()
+        if new_pose.ndim > 1:
+            new_pose = new_pose.flatten()
 
         # Computing Mahalanobis distance
-        diff = new_pose_normalized
+        diff = new_pose
         mahalanobis_distance = torch.sqrt(torch.dot(diff, torch.mv(cov_inv, diff)))
         # Calculate the uncertainty score using exponential decay
         score = 2. / (1. + torch.exp(-decay_rate * mahalanobis_distance)) - 1.
         return score.item()
     def compute_uncertainty_score_entropy(self, pred_region):
-        if len(pred_region) == 0 or len(pred_region) == 1:
-            return 1.
-        # pred_region = self.normalize_data(pred_region)
+        # if len(pred_region) == 0 or len(pred_region) == 1:
+        #     return 1.
+        if self.dataset == "7Scenes":
+            pred_region = pred_region * 100
         cov = torch.cov(pred_region.T)
         entropy = 3 / 2 + 3 / 2 * torch.log(2 * torch.tensor(torch.pi)) + 1 / 2 * torch.log(torch.det(cov))
         uncertainty = 1 / (1 + torch.exp(-entropy)) # sigmoid
