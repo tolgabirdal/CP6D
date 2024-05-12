@@ -9,7 +9,8 @@ import logging
 import scipy.integrate as integrate
 import scipy.optimize
 import scipy.special
-
+import torch
+import torch_bingham
 import numpy as np
 import pandas as pd
 import sys
@@ -529,13 +530,6 @@ class BinghamDistribution(object):
         bingham_location = bingham_location[:, eigval_order]
         moment_eigval = moment_eigval[eigval_order]
 
-        logger = logging.getLogger(__name__)
-        if logger.getEffectiveLevel() == logging.DEBUG:
-            logger.debug("second_moment=\n%s", second_moment)
-            logger.debug("moment_eigval=%s", moment_eigval)
-            logger.debug("eigval_order=%s", eigval_order)
-            logger.debug("bingham_location=\n%s", bingham_location)
-
         def mle_goal_fun(z, rhs):
             """Goal function for MLE optimizer."""
 
@@ -546,7 +540,8 @@ class BinghamDistribution(object):
 
             res = (norm_const_deriv[0:(bd_dim-1)] / norm_const) \
                 - rhs[0:(bd_dim-1)]
-            return res
+                
+            return res * 1000000
 
         bingham_dispersion = scipy.optimize.fsolve(
             lambda x: mle_goal_fun(x, moment_eigval), np.ones([(bd_dim-1)]))
@@ -815,6 +810,19 @@ class BinghamDistribution(object):
             result[1] = result[0] * (1 + t)
             result[2] = result[0] * np.exp(t)
             return result
+    
+    def compute_uncertainty_score_entropy(self, pred_region):
+        bingham_dist = self.fit(np.array(pred_region[:, 3:]))
+        lambdas = torch.tensor(bingham_dist.z[:3], dtype=torch.float32).unsqueeze(0)
+        # F1, dF1 = torch_bingham.F_lookup_3d(lambdas), torch_bingham.dF_lookup_3d(lambdas)
+        F2, dF2 = bingham_dist.norm_const, bingham_dist.norm_const_deriv
+        # print(F1, dF1, F2, dF2)
+        entropy1 = torch.tensor(np.log(F2) - np.dot(dF2, bingham_dist.z) / F2)
+        # entropy2 = torch_bingham.bingham_entropy(lambdas)
+        # print(entropy1, entropy2)
+        entropy = entropy1 * 0.1
+        uncertainty = 1 / (1 + torch.exp(-entropy))
+        return uncertainty
         
 if __name__ == '__main__':
     # chess_pred = np.load('/Users/runyi/Project/pyProject/mstransformer/est_data_from_7scenes_mstransformer/est_pose_data_chess.npy')
@@ -840,10 +848,15 @@ if __name__ == '__main__':
     bingham_z = - np.linspace(0.0, 3.0, 4)[::-1]
     bingham_m = np.eye(4)
     bingham = BinghamDistribution(bingham_m, bingham_z, {"norm_const_mode": "numerical"})
-    q = np.random.rand(4)
-    q = q/np.linalg.norm(q)
-    q = np.vstack([q, q])
+    q = torch.tensor([[-3.6923,  0.3001,  2.9537,  0.8756,  0.0681,  0.4641, -0.1157],
+        [-3.8679,  0.7375,  4.2710,  0.8774,  0.0815,  0.4587, -0.1143],
+        [-3.6118,  0.4946,  2.8798,  0.8835,  0.0672,  0.4443, -0.1324],
+        [-3.8952,  0.2775,  2.5234,  0.8787,  0.0845,  0.4543, -0.1198],
+        [-3.7988,  0.3327,  3.0719,  0.8891,  0.0787,  0.4363, -0.1137]],
+       dtype=torch.float64)
+    q = np.array(q[:, 3:])
 
-    bingham.fit(q)
+    bingham_dist = bingham.fit(q)
+    embed()
     
     

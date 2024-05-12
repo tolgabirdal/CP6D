@@ -33,6 +33,7 @@ class GaussianUncertainty():
     def compute_uncertainty_score_entropy(self, pred_region):
         # if len(pred_region) == 0 or len(pred_region) == 1:
         #     return 1.
+        pred_region = pred_region[:, :3]
         if self.dataset == "7Scenes":
             pred_region = pred_region * 100
         cov = torch.cov(pred_region.T)

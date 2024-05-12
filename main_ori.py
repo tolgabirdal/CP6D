@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from icp import Inductive_Conformal_Predcition as ICP
 from distributions.gaussian_distribution import GaussianUncertainty
+from distributions.bingham_distribution import BinghamDistribution
 from nc_score import pose_err
 from tqdm import tqdm
 import tools
@@ -203,7 +204,7 @@ def fit_bingham_distribution(quaternions):
     lambdas -= lambdas.min()
     return eigenvectors, lambdas
 
-def get_pred_region(icp, test_data_loader, GU):
+def get_pred_region(icp, test_data_loader, Un):
     pred_regions = []
     origin_trans_errs = []
     origin_rot_errs = []
@@ -225,8 +226,11 @@ def get_pred_region(icp, test_data_loader, GU):
 
         # print(pred_region_idx_cal)
         pred_region = cal_poses[pred_region_idx_cal]
-        uncertainty = GU.compute_uncertainty_score_entropy(pred_region[:, :3])
-        
+        try:
+            uncertainty = Un.compute_uncertainty_score_entropy(pred_region)
+        except:
+            print(minibatch['img_path'])
+            uncertainty = uncertainties[-1]
         uncertainties.append(uncertainty)
         pred_regions.append(pred_region)
         origin_trans_errs.append(translation_err(test_t, test_t_gt))
@@ -241,7 +245,20 @@ def get_pred_region(icp, test_data_loader, GU):
         'uncertainties': torch.tensor(uncertainties)
     }
     
-
+def draw_data(args, ori_err, new_err, uncertainty_set, mode='Translation'):
+    plt.figure(figsize=(10, 10))
+    plt.plot(uncertainty_set, new_err, 'o-', color='b', label='Conformal '+mode+' Error')
+    plt.axhline(y=ori_err.mean(), color='g', linestyle='--', label='Original '+mode+' Error')
+    plt.xlabel('Uncertainty Level')
+    plt.ylabel('Mean '+mode+' Error')
+    plt.title('Mean '+mode+' Error')
+    for i, txt in enumerate(new_err):
+        plt.annotate(f'{txt:.3f}', (uncertainty_sets[i], new_err[i]), textcoords="offset points", xytext=(0,3), ha='center')
+        
+    plt.annotate(f'{ori_err.mean():.3f}', xy=(0.1, ori_err.mean()), textcoords="offset points", xytext=(0,3), ha='right', color='g')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('vis_conformal/'+args.data+'/'+args.sn+'_'+args.exp+'.png')
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
@@ -284,7 +301,10 @@ if __name__ == '__main__':
     
     
     # calib non-conformity
-    icp = ICP(cal_poses, cal_pred_poses, mode='Trans')
+    icp = ICP(cal_poses, cal_pred_poses, mode='Rot')
+    bingham_z = - np.linspace(0.0, 3.0, 4)[::-1]
+    bingham_m = np.eye(4)
+    BU = BinghamDistribution(bingham_m, bingham_z, {"norm_const_mode": "numerical"})
     GU = GaussianUncertainty(args.data)
 
     dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
@@ -292,20 +312,24 @@ if __name__ == '__main__':
     
     
     uncertainty_sets = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    
     mean_rot_err = []
     random_prune_rot_err = []
     mean_t_err = []
     random_prune_t_err = []
     num_effiect_samples = []
     
-    pred_data = get_pred_region(icp, dataloader, GU)
+    pred_data = get_pred_region(icp, dataloader, BU)
+    pred_data['uncertainties'] = (pred_data['uncertainties'] - pred_data['uncertainties'].min()) / (pred_data['uncertainties'].max() - pred_data['uncertainties'].min())
     ori_t_err = pred_data['Trans_Err']
+    ori_r_err = pred_data['Rot_Err']
     for uncertainty_set in uncertainty_sets:
         mask = (pred_data['uncertainties'] <= uncertainty_set)
-        # embed()
         mean_t_err.append((pred_data['Trans_Err'] * mask).mean())
+        mean_rot_err.append((pred_data['Rot_Err'] * mask).mean())
         num_effiect_samples.append(mask.sum())
         
+    draw_data(args, ori_r_err, mean_rot_err, uncertainty_sets, mode='Rotation')
     
     
     #     p_values_rot = []
@@ -321,37 +345,37 @@ if __name__ == '__main__':
     #     random_prune_t_err.append(np.mean(ori_random_t_err))
     #     print("Uncertainty Set: ", uncertainty_set, "Mean Translation Error: ", np.mean(new_t_err), "Random Prune Translation Error: ", np.mean(ori_random_t_err), "Original Translation Error: ", np.mean(ori_t_err), "Total: ", len(ori_t_err))
 
-    plt.figure(figsize=(10, 10))
-    plt.subplot(2, 1, 1)
-    plt.title(args.data + ": " + args.sn)
-    plt.plot(uncertainty_sets, mean_t_err, 'o-', color='b', label='Conformal Translation Error')
-    # plt.plot(uncertainty_sets, random_prune_t_err, 'x-', color='r', label='Random Prune Translation Error')
-    plt.axhline(y=ori_t_err.mean(), color='g', linestyle='--', label='Original Translation Error')
-    plt.xlabel('Uncertainty Level')
-    plt.ylabel('Mean Translation Error')
-    for i, txt in enumerate(mean_t_err):
-        plt.annotate(f'{txt:.3f}', (uncertainty_sets[i], mean_t_err[i]), textcoords="offset points", xytext=(0,3), ha='center')
+    # plt.figure(figsize=(10, 10))
+    # plt.subplot(2, 1, 1)
+    # plt.title(args.data + ": " + args.sn)
+    # plt.plot(uncertainty_sets, mean_t_err, 'o-', color='b', label='Conformal Translation Error')
+    # # plt.plot(uncertainty_sets, random_prune_t_err, 'x-', color='r', label='Random Prune Translation Error')
+    # plt.axhline(y=ori_t_err.mean(), color='g', linestyle='--', label='Original Translation Error')
+    # plt.xlabel('Uncertainty Level')
+    # plt.ylabel('Mean Translation Error')
+    # for i, txt in enumerate(mean_t_err):
+    #     plt.annotate(f'{txt:.3f}', (uncertainty_sets[i], mean_t_err[i]), textcoords="offset points", xytext=(0,3), ha='center')
         
-    plt.annotate(f'{ori_t_err.mean():.3f}', xy=(0.1, ori_t_err.mean()), textcoords="offset points", xytext=(0,3), ha='right', color='g')
-    # plt.title('Mean Translation Error')
-    # plt.legend()
-    # plt.tight_layout()
-    # plt.savefig('vis/TourismPhoto/real_conformal_t/'+args.sn+'_mean_t_err.png')
+    # plt.annotate(f'{ori_t_err.mean():.3f}', xy=(0.1, ori_t_err.mean()), textcoords="offset points", xytext=(0,3), ha='right', color='g')
+    # # plt.title('Mean Translation Error')
+    # # plt.legend()
+    # # plt.tight_layout()
+    # # plt.savefig('vis/TourismPhoto/real_conformal_t/'+args.sn+'_mean_t_err.png')
 
-    plt.subplot(2, 1, 2)
-    # Plot the length of new_t_err
-    plt.plot(uncertainty_sets, num_effiect_samples, 'o-', color='m', label='Length of Valid Poses')
-    plt.axhline(y=len(ori_t_err), color='g', linestyle='--', label='Total Samples')
-    # Add labels and title
-    plt.xlabel('Uncertainty Level')
-    plt.ylabel('Num of Valid Predictions')
-    for i, txt in enumerate(num_effiect_samples):
-        plt.annotate(f'{txt}', (uncertainty_sets[i], num_effiect_samples[i]), textcoords="offset points", xytext=(0,3), ha='center')
-    plt.annotate(f'{len(ori_t_err)}', xy=(0.1, len(ori_t_err)), textcoords="offset points", xytext=(0,3), ha='right', color='g')
-    # plt.title('Length of new_t_err')
-    # Add legend
-    plt.legend()
-    # Adjust the layout
-    plt.tight_layout()
-    # Save the figure
-    plt.savefig('vis_conformal_t/'+ args.data + '/' + args.sn+ '_' + args.exp + '.png')
+    # plt.subplot(2, 1, 2)
+    # # Plot the length of new_t_err
+    # plt.plot(uncertainty_sets, num_effiect_samples, 'o-', color='m', label='Length of Valid Poses')
+    # plt.axhline(y=len(ori_t_err), color='g', linestyle='--', label='Total Samples')
+    # # Add labels and title
+    # plt.xlabel('Uncertainty Level')
+    # plt.ylabel('Num of Valid Predictions')
+    # for i, txt in enumerate(num_effiect_samples):
+    #     plt.annotate(f'{txt}', (uncertainty_sets[i], num_effiect_samples[i]), textcoords="offset points", xytext=(0,3), ha='center')
+    # plt.annotate(f'{len(ori_t_err)}', xy=(0.1, len(ori_t_err)), textcoords="offset points", xytext=(0,3), ha='right', color='g')
+    # # plt.title('Length of new_t_err')
+    # # Add legend
+    # plt.legend()
+    # # Adjust the layout
+    # plt.tight_layout()
+    # # Save the figure
+    # plt.savefig('vis_conformal_r/'+ args.data + '/' + args.sn+ '_' + args.exp + '.png')

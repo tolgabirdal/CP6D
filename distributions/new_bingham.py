@@ -3,7 +3,8 @@ import scipy.integrate as integrate
 import scipy.optimize
 from scipy.optimize import minimize
 import scipy.special
-
+import torch
+import torch_bingham
 import numpy as np
 import pandas as pd
 import sys
@@ -168,7 +169,7 @@ class BinghamDistribution:
         ################
         def objective(lambdas):
             nll_loss = nll(calibration_data, F_const, lambdas, M)
-            penalty = 0.0 * np.sum(np.abs(lambdas))
+            penalty = 0.1 * np.sum(np.abs(lambdas))
             print(nll_loss, penalty)
             return nll_loss + penalty
         
@@ -220,10 +221,15 @@ if __name__ == '__main__':
     bingham_z = - np.linspace(0.0, 3.0, 4)
     bingham_m = np.eye(4)
     bingham = BinghamDistribution(bingham_m, bingham_z)
-    q = np.random.rand(4)
-    q = q/np.linalg.norm(q)
-    q = np.vstack([q, q])
+    q = torch.tensor([[-3.6923,  0.3001,  2.9537,  0.8756,  0.0681,  0.4641, -0.1157],
+        [-3.8679,  0.7375,  4.2710,  0.8774,  0.0815,  0.4587, -0.1143],
+        [-3.6118,  0.4946,  2.8798,  0.8835,  0.0672,  0.4443, -0.1324],
+        [-3.8952,  0.2775,  2.5234,  0.8787,  0.0845,  0.4543, -0.1198],
+        [-3.7988,  0.3327,  3.0719,  0.8891,  0.0787,  0.4363, -0.1137]],
+       dtype=torch.float64)
+    q = np.array(q[:, 3:])
     bingham.fit(q)
+    embed()
     
     
         

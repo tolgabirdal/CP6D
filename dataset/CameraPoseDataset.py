@@ -134,7 +134,7 @@ class CameraPoseDatasetPred(Dataset):
             img = self.transform(img)
         if img is not None:
             if self.load_npz == False:
-                sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose}
+                sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose, 'img_path': self.img_paths[idx]}
             else:
                 sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose, 'feature_t': feature_t, 'feature_rot': feature_rot, 'img_path': self.img_paths[idx]}
         else:
