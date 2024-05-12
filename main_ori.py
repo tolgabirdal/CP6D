@@ -235,7 +235,7 @@ def get_pred_region(icp, test_data_loader, Un):
         pred_regions.append(pred_region)
         origin_trans_errs.append(translation_err(test_t, test_t_gt))
         origin_rot_errs.append(rotation_err(test_q, test_q_gt))
-        
+
     return {
         'test_gt': test_gt_poses,
         'test_pred': test_pred_poses,
@@ -301,7 +301,7 @@ if __name__ == '__main__':
     
     
     # calib non-conformity
-    icp = ICP(cal_poses, cal_pred_poses, mode='Rot')
+    icp = ICP(cal_poses, cal_pred_poses, mode='Trans')
     bingham_z = - np.linspace(0.0, 3.0, 4)[::-1]
     bingham_m = np.eye(4)
     BU = BinghamDistribution(bingham_m, bingham_z, {"norm_const_mode": "numerical"})
@@ -319,9 +319,11 @@ if __name__ == '__main__':
     random_prune_t_err = []
     num_effiect_samples = []
     
-    pred_data = get_pred_region(icp, dataloader, BU)
+    pred_data = get_pred_region(icp, dataloader, GU)
+    embed()
     pred_data['uncertainties'] = (pred_data['uncertainties'] - pred_data['uncertainties'].min()) / (pred_data['uncertainties'].max() - pred_data['uncertainties'].min())
     ori_t_err = pred_data['Trans_Err']
+    # embed()
     ori_r_err = pred_data['Rot_Err']
     for uncertainty_set in uncertainty_sets:
         mask = (pred_data['uncertainties'] <= uncertainty_set)
@@ -329,7 +331,7 @@ if __name__ == '__main__':
         mean_rot_err.append((pred_data['Rot_Err'] * mask).mean())
         num_effiect_samples.append(mask.sum())
         
-    draw_data(args, ori_r_err, mean_rot_err, uncertainty_sets, mode='Rotation')
+    draw_data(args, ori_t_err, mean_t_err, uncertainty_sets, mode='Translation')
     
     
     #     p_values_rot = []
