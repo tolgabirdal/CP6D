@@ -269,10 +269,12 @@ if __name__ == '__main__':
     args = arg_parser.parse_args()
     
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    
-    # sns = ['chess', 'fire', 'heads', 'office', 'pumpkin', 'redkitchen', 'stairs']
-    sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
-    # sns = ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior', 'grand_place_brussels', 'notre_dame_front_facade', 'palace_of_westminster', 'pantheon_exterior', 'taj_mahal', 'temple_nara_japan', 'trevi_fountain']
+    if args.data == "7Scenes":
+        sns = ['chess', 'fire', 'heads', 'office', 'pumpkin', 'redkitchen', 'stairs']
+    elif args.data == "CambridgeLandmarks":
+        sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
+    elif args.data == "PhotoTourism":
+        sns = ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior', 'grand_place_brussels', 'notre_dame_front_facade', 'palace_of_westminster', 'pantheon_exterior', 'taj_mahal', 'temple_nara_japan', 'trevi_fountain']
     to_plot = {sn: [] for sn in sns}
     for i in sns:
         print("Scene: ", i)
@@ -305,19 +307,19 @@ if __name__ == '__main__':
         # cal_pred_poses[:, :3] = (cal_pred_poses[:, :3] - tmin) / (tmax - tmin)
 
         # calib non-conformity
-        icp = ICP(cal_poses, cal_pred_poses, mode='Trans')
+        icp = ICP(cal_poses, cal_pred_poses, mode='Rot')
         bingham_z = - np.linspace(0.0, 3.0, 4)[::-1]
         bingham_m = np.eye(4)
         BU = BinghamDistribution(bingham_m, bingham_z, {"norm_const_mode": "numerical"})
         GU = GaussianUncertainty(args.data)
 
         dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
-        pred_data = get_pred_region(icp, dataloader, GU)
+        pred_data = get_pred_region(icp, dataloader, BU)
 
         uncertainty_sets = np.linspace(0.02, 1.0, 50)
 
         uncertainties = pred_data['uncertainties']
-        err = pred_data['Trans_Err']
+        err = pred_data['Rot_Err']
         # valid_elements = err[~torch.isnan(err)]
         # nanmax = valid_elements.max()
         # err[torch.isnan(err)] = nanmax
@@ -345,9 +347,9 @@ if __name__ == '__main__':
     # plt.title('Mean Error vs Uncertainty Level', fontsize=14)
 
     # Add legend
-    plt.legend(fontsize=18)
-    plt.xticks(fontsize=18)
-    plt.yticks(fontsize=18)
+    plt.legend(fontsize=22)
+    plt.xticks(fontsize=22)
+    plt.yticks(fontsize=22)
     plt.tight_layout()
 
     # Save the figure as PDF
