@@ -298,8 +298,7 @@ if __name__ == '__main__':
     tmean, tstd, tmax, tmin = torch.mean(cal_poses[:, :3], dim=0), torch.std(cal_poses[:, :3], dim=0), torch.max(cal_poses[:, :3], dim=0)[0], torch.min(cal_poses[:, :3], dim=0)[0]
     # cal_poses[:, :3] = (cal_poses[:, :3] - tmin) / (tmax - tmin)
     # cal_pred_poses[:, :3] = (cal_pred_poses[:, :3] - tmin) / (tmax - tmin)
-    print(args)
-    
+
     # calib non-conformity
     icp = ICP(cal_poses, cal_pred_poses, mode='Trans')
     bingham_z = - np.linspace(0.0, 3.0, 4)[::-1]

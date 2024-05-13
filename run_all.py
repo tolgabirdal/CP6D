@@ -18,6 +18,8 @@ import torch_bingham
 from IPython import embed
 from colmap.scripts.python.read_write_model import read_model, qvec2rotmat
 from colmap.scripts.python.read_write_dense import read_array
+import csv
+import pandas as pd
 
 # compute the relative pose
 def normalize_vector( v):
@@ -141,7 +143,7 @@ def find_poses(image1, image2, model, K):
     # Cambridge 
     
     # 7Scenes
-    # K = np.array([[532.57, 0, 320],
+    # K = np.array([[532.57, 0, 332],
     #               [0, 531.54, 240],
     #               [0, 0, 1]], dtype=np.float32)
     
@@ -261,99 +263,130 @@ def draw_data(args, ori_err, new_err, uncertainty_set, mode='Translation'):
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("-r", "--root_path", help="dataset root path, e.g. /home/runyi/Data/")
-    arg_parser.add_argument("-d", "--data", help="dataset, e.g. 7Scenes, PhotoTourism, CambridgeLandmarks")
-    arg_parser.add_argument("-l", "--label_file", help="label files dir, /home/runyi/Project/TBCP6D/dataset/PhotoTourism/")
+    # arg_parser.add_argument("-d", "--data", help="dataset, e.g. 7Scenes, PhotoTourism, CambridgeLandmarks")
+    # arg_parser.add_argument("-l", "--label_file", help="label files dir, /home/runyi/Project/TBCP6D/dataset/PhotoTourism/")
     # arg_parser.add_argument("-s", "--sn", help="name of scenes e.g. chess, fire")
     arg_parser.add_argument("-f", "--feature", help="if you need feature")
     arg_parser.add_argument("exp", default=None, help="name of experiment")
     args = arg_parser.parse_args()
     
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    if args.data == "7Scenes":
-        sns = ['chess', 'fire', 'heads', 'office', 'pumpkin', 'redkitchen', 'stairs']
-    elif args.data == "CambridgeLandmarks":
-        sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
-    elif args.data == "PhotoTourism":
-        sns = ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior', 'grand_place_brussels', 'notre_dame_front_facade', 'palace_of_westminster', 'pantheon_exterior', 'taj_mahal', 'temple_nara_japan', 'trevi_fountain']
-    to_plot = {sn: [] for sn in sns}
-    for i in sns:
-        print("Scene: ", i)
-        args.sn = i
-        if args.data == "7Scenes":
-            args.sn = 'abs_7scenes_pose.csv_' + args.sn
-            final_cal = '_cal.csv_results.csv'
-            final_test = '_test.csv_results.csv'
-        elif args.data == "CambridgeLandmarks":
-            args.sn = 'abs_cambridge_pose_sorted.csv_' + args.sn
-            final_cal = '_cal.csv_results.csv'
-            final_test = '_test.csv_results.csv'
-        elif args.data == "PhotoTourism":
-            final_cal = '_val.csv_results.csv'
-            final_test = '_test.csv_results.csv'
-            
-        cal_labels_file = args.label_file + args.sn + final_cal
-        test_labels_file = args.label_file + args.sn + final_test
-        # if args.feature is not None:
-        #     calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file(args.label_file+args.sn+'_val.csv_results.npz')
-        #     calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
-
-        data_path = args.root_path + args.data + '/'
-        cal_set = CameraPoseDatasetPred(data_path, cal_labels_file, load_npz=False)
-        test_set = CameraPoseDatasetPred(data_path, test_labels_file, load_npz=False)
-        cal_poses = torch.tensor(cal_set.poses)
-        cal_pred_poses = torch.tensor(cal_set.pred_poses)
-        tmean, tstd, tmax, tmin = torch.mean(cal_poses[:, :3], dim=0), torch.std(cal_poses[:, :3], dim=0), torch.max(cal_poses[:, :3], dim=0)[0], torch.min(cal_poses[:, :3], dim=0)[0]
-        # cal_poses[:, :3] = (cal_poses[:, :3] - tmin) / (tmax - tmin)
-        # cal_pred_poses[:, :3] = (cal_pred_poses[:, :3] - tmin) / (tmax - tmin)
-
-        # calib non-conformity
-        icp = ICP(cal_poses, cal_pred_poses, mode='Rot')
-        bingham_z = - np.linspace(0.0, 3.0, 4)[::-1]
-        bingham_m = np.eye(4)
-        BU = BinghamDistribution(bingham_m, bingham_z, {"norm_const_mode": "numerical"})
-        GU = GaussianUncertainty(args.data)
-
-        dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
-        pred_data = get_pred_region(icp, dataloader, BU)
-
-        uncertainty_sets = np.linspace(0.02, 1.0, 50)
-
-        uncertainties = pred_data['uncertainties']
-        err = pred_data['Rot_Err']
-        # valid_elements = err[~torch.isnan(err)]
-        # nanmax = valid_elements.max()
-        # err[torch.isnan(err)] = nanmax
-        # err = (err - err.min()) / (err.max() - err.min())
-        total_samples = len(uncertainties)
-        
-        for uncertainty_set in uncertainty_sets:
-            top_count = int(total_samples * uncertainty_set) - 1
-            # print("Top Count: ", top_count, 'Total Samples: ', total_samples)
-            threshold = torch.sort(uncertainties)[0][top_count]
-            mask = uncertainties >= threshold
-            mean_err = (err * mask).mean()
-            to_plot[i].append(mean_err)
+    datasets = ["CambridgeLandmarks", "PhotoTourism", "7Scenes"]
+    modes = ['Trans', 'Rot']
+    fig, axs = plt.subplots(2, 3, figsize=(18, 12), sharex='all', sharey='all')
     
-    # Plotting the data
-    plt.figure(figsize=(10, 10))
-    for sn, data in to_plot.items():
-        data = np.array(data)
-        data = (data - data.min()) / (data.max() - data.min())
-        plt.plot(uncertainty_sets, data, label=sn)
+    for dataset_id, dataset in enumerate(datasets):
+        args.data = dataset
+        if args.data == "7Scenes":
+            args.label_file = './dataset/7Scenes_0.5/'
+            sns = ['chess', 'fire', 'heads', 'office', 'pumpkin', 'redkitchen', 'stairs']
+        elif args.data == "CambridgeLandmarks":
+            args.label_file = './dataset/CambridgeLandmarks_0.5/'
+            sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
+        elif args.data == "PhotoTourism":
+            args.label_file = './dataset/PhotoTourism/10scenes_train/'
+            sns = ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior', 'grand_place_brussels', 'notre_dame_front_facade', 'palace_of_westminster', 'pantheon_exterior', 'taj_mahal', 'temple_nara_japan', 'trevi_fountain']
+            
+        to_plot_trans = {sn: [] for sn in sns}
+        to_plot_rot = {sn: [] for sn in sns}
+        for i in sns:
+            print("Scene: ", i)
+            args.sn = i
+            if args.data == "7Scenes":
+                args.sn = 'abs_7scenes_pose.csv_' + args.sn
+                final_cal = '_cal.csv_results.csv'
+                final_test = '_test.csv_results.csv'
+            elif args.data == "CambridgeLandmarks":
+                args.sn = 'abs_cambridge_pose_sorted.csv_' + args.sn
+                final_cal = '_cal.csv_results.csv'
+                final_test = '_test.csv_results.csv'
+            elif args.data == "PhotoTourism":
+                final_cal = '_val.csv_results.csv'
+                final_test = '_test.csv_results.csv'
+                
+            cal_labels_file = args.label_file + args.sn + final_cal
+            test_labels_file = args.label_file + args.sn + final_test
+            # if args.feature is not None:
+            #     calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file(args.label_file+args.sn+'_val.csv_results.npz')
+            #     calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
+
+            data_path = args.root_path + args.data + '/'
+            cal_set = CameraPoseDatasetPred(data_path, cal_labels_file, load_npz=False)
+            test_set = CameraPoseDatasetPred(data_path, test_labels_file, load_npz=False)
+            cal_poses = torch.tensor(cal_set.poses)
+            cal_pred_poses = torch.tensor(cal_set.pred_poses)
+            tmean, tstd, tmax, tmin = torch.mean(cal_poses[:, :3], dim=0), torch.std(cal_poses[:, :3], dim=0), torch.max(cal_poses[:, :3], dim=0)[0], torch.min(cal_poses[:, :3], dim=0)[0]
+            # cal_poses[:, :3] = (cal_poses[:, :3] - tmin) / (tmax - tmin)
+            # cal_pred_poses[:, :3] = (cal_pred_poses[:, :3] - tmin) / (tmax - tmin)
+
+            # calib non-conformity
+            icp_rot = ICP(cal_poses, cal_pred_poses, mode='Rot')
+            icp_trans = ICP(cal_poses, cal_pred_poses, mode='Trans')
+            bingham_z = - np.linspace(0.0, 3.0, 4)[::-1]
+            bingham_m = np.eye(4)
+            BU = BinghamDistribution(bingham_m, bingham_z, {"norm_const_mode": "numerical"})
+            GU = GaussianUncertainty(args.data)
+
+            dataloader_trans = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
+            pred_data_trans = get_pred_region(icp_trans, dataloader_trans, GU)
+            dataloader_rot = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
+            pred_data_rot = get_pred_region(icp_rot, dataloader_rot, BU)
+
+            uncertainty_sets = np.linspace(0.02, 1.0, 50)
+
+            uncertainties_trans = pred_data_trans['uncertainties']
+            uncertainties_rot = pred_data_rot['uncertainties']
+            err_trans = pred_data_rot['Trans_Err']
+            err_rot = pred_data_rot['Rot_Err']
+            # valid_elements = err[~torch.isnan(err)]
+            # nanmax = valid_elements.max()
+            # err[torch.isnan(err)] = nanmax
+            # err = (err - err.min()) / (err.max() - err.min())
+            total_samples_trans = len(uncertainties_trans)
+            total_samples_rot = len(uncertainties_rot)
+            
+            for uncertainty_set in uncertainty_sets:
+                top_count_trans = int(total_samples_trans * uncertainty_set) - 1
+                top_count_rot = int(total_samples_rot * uncertainty_set) - 1
+                # print("Top Count: ", top_count, 'Total Samples: ', total_samples)
+                threshold_trans = torch.sort(uncertainties_trans)[0][top_count_trans]
+                threshold_rot = torch.sort(uncertainties_rot)[0][top_count_rot]
+                mask_trans = uncertainties_trans >= threshold_trans
+                mask_rot = uncertainties_rot >= threshold_rot
+                mean_trans_err = (err_trans * mask_trans).mean().item()
+                mean_rot_err = (err_rot * mask_rot).mean().item()
+                to_plot_trans[i].append(mean_trans_err)
+                to_plot_rot[i].append(mean_rot_err)
+            
+        # Store to_plot_trans as CSV
+        df_t = pd.DataFrame(to_plot_trans)
+        df_t.to_csv(f'{args.data}_trans.csv', index=False)
+        df_r = pd.DataFrame(to_plot_rot)
+        df_r.to_csv(f'{args.data}_rot.csv', index=False)
+
+        # ax_trans = axs[0, dataset_id]
+        # for sn, data in to_plot_trans.items():
+        #     data = np.array(data)
+        #     data = (data - data.min()) / (data.max() - data.min())
+        #     ax_trans.plot(uncertainty_sets, data, label=sn)
+        # ax_trans.legend(fontsize=14)
+        # ax_trans.tick_params(axis='both', labelsize=14)
+        # ax_trans.set_title(dataset, fontsize=18)
+        # ax_trans.set_xlabel('Percentage', fontsize=16)
+        # ax_trans.set_ylabel('Normalized Mean Error', fontsize=16)
         
-    # Add labels and title
-    # plt.xlabel('Percentage', fontsize=14)
-    # plt.ylabel('Normalized Mean Error', fontsize=14)
-    # plt.title('Mean Error vs Uncertainty Level', fontsize=14)
+        # ax_rot = axs[1, dataset_id]
+        # for sn, data in to_plot_trans.items():
+        #     data = np.array(data)
+        #     data = (data - data.min()) / (data.max() - data.min())
+        #     ax_rot.plot(uncertainty_sets, data, label=sn)
+        # ax_rot.legend(fontsize=14)
+        # ax_rot.tick_params(axis='both', labelsize=14)
+        # ax_rot.set_xlabel('Percentage', fontsize=16)
+        # ax_rot.set_ylabel('Normalized Mean Error', fontsize=16)
 
-    # Add legend
-    plt.legend(fontsize=22)
-    plt.xticks(fontsize=22)
-    plt.yticks(fontsize=22)
-    plt.tight_layout()
-
-    # Save the figure as PDF
-    plt.savefig('vis_conformal/' + args.data + '/' + args.exp + '.pdf')
+        # fig.tight_layout()
+        # fig.savefig('main.pdf')
     
     
     # pred_data['uncertainties'] = (pred_data['uncertainties'] - pred_data['uncertainties'].min()) / (pred_data['uncertainties'].max() - pred_data['uncertainties'].min())
