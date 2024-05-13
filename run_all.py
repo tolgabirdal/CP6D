@@ -271,7 +271,8 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
     # sns = ['chess', 'fire', 'heads', 'office', 'pumpkin', 'redkitchen', 'stairs']
-    sns = ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior', 'grand_place_brussels', 'notre_dame_front_facade', 'palace_of_westminster', 'pantheon_exterior', 'taj_mahal', 'temple_nara_japan', 'trevi_fountain']
+    sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
+    # sns = ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior', 'grand_place_brussels', 'notre_dame_front_facade', 'palace_of_westminster', 'pantheon_exterior', 'taj_mahal', 'temple_nara_japan', 'trevi_fountain']
     to_plot = {sn: [] for sn in sns}
     for i in sns:
         print("Scene: ", i)
@@ -327,7 +328,7 @@ if __name__ == '__main__':
             top_count = int(total_samples * uncertainty_set) - 1
             # print("Top Count: ", top_count, 'Total Samples: ', total_samples)
             threshold = torch.sort(uncertainties)[0][top_count]
-            mask = uncertainties <= threshold
+            mask = uncertainties >= threshold
             mean_err = (err * mask).mean()
             to_plot[i].append(mean_err)
     
@@ -337,17 +338,20 @@ if __name__ == '__main__':
         data = np.array(data)
         data = (data - data.min()) / (data.max() - data.min())
         plt.plot(uncertainty_sets, data, label=sn)
-    embed()
+        
     # Add labels and title
-    plt.xlabel('Uncertainty Level', fontsize=14)
-    plt.ylabel('Mean Error', fontsize=14)
-    plt.title('Mean Error vs Uncertainty Level', fontsize=14)
+    # plt.xlabel('Percentage', fontsize=14)
+    # plt.ylabel('Normalized Mean Error', fontsize=14)
+    # plt.title('Mean Error vs Uncertainty Level', fontsize=14)
 
     # Add legend
-    plt.legend()
+    plt.legend(fontsize=18)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.tight_layout()
 
     # Save the figure as PDF
-    plt.savefig('vis_conformal/' + args.data + '/' + args.sn + '_' + args.exp + '.pdf')
+    plt.savefig('vis_conformal/' + args.data + '/' + args.exp + '.pdf')
     
     
     # pred_data['uncertainties'] = (pred_data['uncertainties'] - pred_data['uncertainties'].min()) / (pred_data['uncertainties'].max() - pred_data['uncertainties'].min())
