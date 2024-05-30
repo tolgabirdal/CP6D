@@ -266,8 +266,9 @@ if __name__ == '__main__':
     # arg_parser.add_argument("-d", "--data", help="dataset, e.g. 7Scenes, PhotoTourism, CambridgeLandmarks")
     # arg_parser.add_argument("-l", "--label_file", help="label files dir, /home/runyi/Project/TBCP6D/dataset/PhotoTourism/")
     # arg_parser.add_argument("-s", "--sn", help="name of scenes e.g. chess, fire")
+    arg_parser.add_argument("-m", "--model_path", help="model path")
     arg_parser.add_argument("-f", "--feature", help="if you need feature")
-    arg_parser.add_argument("exp", default=None, help="name of experiment")
+    # arg_parser.add_argument("exp", default=None, help="name of experiment")
     args = arg_parser.parse_args()
     
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -278,13 +279,13 @@ if __name__ == '__main__':
     for dataset_id, dataset in enumerate(datasets):
         args.data = dataset
         if args.data == "7Scenes":
-            args.label_file = './dataset/7Scenes_0.5/'
+            args.label_file = './dataset/'+args.model_path+'/7Scenes_0.5/'
             sns = ['chess', 'fire', 'heads', 'office', 'pumpkin', 'redkitchen', 'stairs']
         elif args.data == "CambridgeLandmarks":
-            args.label_file = './dataset/CambridgeLandmarks_0.5/'
+            args.label_file = './dataset/'+args.model_path+'/CambridgeLandmarks_0.5/'
             sns = ['KingsCollege', 'OldHospital', 'ShopFacade', 'StMarysChurch']
         elif args.data == "PhotoTourism":
-            args.label_file = './dataset/PhotoTourism/10scenes_train/'
+            args.label_file = './dataset/'+args.model_path+'/PhotoTourism/'
             sns = ['brandenburg_gate', 'buckingham_palace', 'colosseum_exterior', 'grand_place_brussels', 'notre_dame_front_facade', 'palace_of_westminster', 'pantheon_exterior', 'taj_mahal', 'temple_nara_japan', 'trevi_fountain']
             
         to_plot_trans = {sn: [] for sn in sns}
@@ -360,9 +361,9 @@ if __name__ == '__main__':
             
         # Store to_plot_trans as CSV
         df_t = pd.DataFrame(to_plot_trans)
-        df_t.to_csv(f'{args.data}_trans.csv', index=False)
+        df_t.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_resutls/{args.data}_trans.csv', index=False)
         df_r = pd.DataFrame(to_plot_rot)
-        df_r.to_csv(f'{args.data}_rot.csv', index=False)
+        df_r.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_resutls/{args.data}_rot.csv', index=False)
 
         # ax_trans = axs[0, dataset_id]
         # for sn, data in to_plot_trans.items():
