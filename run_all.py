@@ -268,7 +268,7 @@ if __name__ == '__main__':
     # arg_parser.add_argument("-s", "--sn", help="name of scenes e.g. chess, fire")
     arg_parser.add_argument("-m", "--model_path", help="model path")
     arg_parser.add_argument("-f", "--feature", help="if you need feature")
-    # arg_parser.add_argument("exp", default=None, help="name of experiment")
+    arg_parser.add_argument("exp", default=None, help="name of experiment")
     args = arg_parser.parse_args()
     
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -361,9 +361,9 @@ if __name__ == '__main__':
             
         # Store to_plot_trans as CSV
         df_t = pd.DataFrame(to_plot_trans)
-        df_t.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_resutls/{args.data}_trans.csv', index=False)
+        df_t.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_results/{args.data}_trans.csv', index=False)
         df_r = pd.DataFrame(to_plot_rot)
-        df_r.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_resutls/{args.data}_rot.csv', index=False)
+        df_r.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_results/{args.data}_rot.csv', index=False)
 
         # ax_trans = axs[0, dataset_id]
         # for sn, data in to_plot_trans.items():

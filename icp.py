@@ -186,12 +186,18 @@ class Inductive_Conformal_Predcition:
         
         pred_region = []
         p_values = []
+        
+        # Scale new_pose_nc_scores and self.nc_scores to [0, 1]
+        new_pose_nc_scores = (new_pose_nc_scores - new_pose_nc_scores.min()) / (new_pose_nc_scores.max() - new_pose_nc_scores.min())
+        self.nc_scores = (self.nc_scores - self.nc_scores.min()) / (self.nc_scores.max() - self.nc_scores.min())
+        
         for idx, new_nc_score in enumerate(new_pose_nc_scores):
             p_value = (self.nc_scores >= new_nc_score).float().mean()
             # print("P-value: ", p_value)
             p_values.append(p_value)
         # Get topk p_values corredsponding indices
         p_values = np.array(p_values)
-        pred_region = np.argsort(p_values)[::-1][:topk]
+        # pred_region = np.argsort(p_values)[::-1][:topk]
+        pred_region = np.where(p_values > 0.5)[0]
         # print("P-value Num: ", len(pred_region))
         return pred_region.tolist()
