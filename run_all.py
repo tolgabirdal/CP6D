@@ -230,7 +230,10 @@ def get_pred_region(icp, test_data_loader, Un):
             uncertainty = Un.compute_uncertainty_score_entropy(pred_region)
         except:
             print(minibatch['img_path'])
-            uncertainty = uncertainties[-1]
+            if len(uncertainties) == 0:
+                uncertainty = 0.5
+            else:
+                uncertainty = uncertainties[-1]
         uncertainties.append(uncertainty)
         pred_regions.append(pred_region)
         origin_trans_errs.append(translation_err(test_t, test_t_gt))
@@ -361,9 +364,9 @@ if __name__ == '__main__':
             
         # Store to_plot_trans as CSV
         df_t = pd.DataFrame(to_plot_trans)
-        df_t.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_results/{args.data}_trans.csv', index=False)
+        df_t.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_results_nc_score_norm_p=0.8/{args.data}_trans.csv', index=False)
         df_r = pd.DataFrame(to_plot_rot)
-        df_r.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_results/{args.data}_rot.csv', index=False)
+        df_r.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_results_nc_score_norm_p=0.8/{args.data}_rot.csv', index=False)
 
         # ax_trans = axs[0, dataset_id]
         # for sn, data in to_plot_trans.items():

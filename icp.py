@@ -198,6 +198,6 @@ class Inductive_Conformal_Predcition:
         # Get topk p_values corredsponding indices
         p_values = np.array(p_values)
         # pred_region = np.argsort(p_values)[::-1][:topk]
-        pred_region = np.where(p_values > 0.5)[0]
+        pred_region = np.where(p_values > 0.8)[0]
         # print("P-value Num: ", len(pred_region))
         return pred_region.tolist()
