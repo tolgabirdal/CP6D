@@ -357,8 +357,9 @@ if __name__ == '__main__':
                 threshold_rot = torch.sort(uncertainties_rot)[0][top_count_rot]
                 mask_trans = uncertainties_trans >= threshold_trans
                 mask_rot = uncertainties_rot >= threshold_rot
-                mean_trans_err = (err_trans * mask_trans).sum().item() / mask_trans.sum().item()
-                mean_rot_err = (err_rot * mask_rot).sum().item() / mask_rot.sum().item()
+                mean_trans_err = (err_trans * mask_trans).sum().item() / (mask_trans.sum().item() + 1e-9)
+                
+                mean_rot_err = (err_rot * mask_rot).sum().item() / (mask_rot.sum().item() + 1e-9)
                 to_plot_trans[i].append(mean_trans_err)
                 to_plot_rot[i].append(mean_rot_err)
             
