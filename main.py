@@ -333,8 +333,9 @@ if __name__ == '__main__':
         total_count = int(len(pred_data['uncertainties']) * uncertainty_set) - 1
         threshold = torch.sort(pred_data['uncertainties'])[0][total_count]
         mask = (pred_data['uncertainties'] >= threshold)
-        mean_t_err.append((pred_data['Trans_Err'] * mask).mean())
-        mean_rot_err.append((pred_data['Rot_Err'] * mask).mean())
+        # (err_trans * mask_trans).sum().item() / (mask_trans.sum().item() + 1e-9)
+        mean_t_err.append((pred_data['Trans_Err'] * mask).sum() / (mask.sum() + 1e-9))
+        mean_rot_err.append((pred_data['Rot_Err'] * mask).sum() / (mask.sum() + 1e-9))
         num_effiect_samples.append(mask.sum())
 
     draw_data(args, ori_t_err, mean_t_err, uncertainty_sets, mode='Translation')
