@@ -329,10 +329,11 @@ if __name__ == '__main__':
     pred_data['uncertainties'] = (pred_data['uncertainties'] - valid_uncertainties.min()) / (valid_uncertainties.max() - valid_uncertainties.min())
     ori_t_err = pred_data['Trans_Err'] 
     ori_r_err = pred_data['Rot_Err']
+    embed()
     for uncertainty_set in uncertainty_sets:
         total_count = int(len(pred_data['uncertainties']) * uncertainty_set) - 1
         threshold = torch.sort(pred_data['uncertainties'])[0][total_count]
-        mask = (pred_data['uncertainties'] >= threshold)
+        mask = (pred_data['uncertainties'] <= threshold)
         # (err_trans * mask_trans).sum().item() / (mask_trans.sum().item() + 1e-9)
         mean_t_err.append((pred_data['Trans_Err'] * mask).sum() / (mask.sum() + 1e-9))
         mean_rot_err.append((pred_data['Rot_Err'] * mask).sum() / (mask.sum() + 1e-9))
