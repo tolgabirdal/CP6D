@@ -222,7 +222,7 @@ def get_pred_region(icp, test_data_loader, Un, norm):
         test_pred_poses.append(minibatch['est_pose'])
         # test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
         test_pose = minibatch['est_pose']
-        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, topk=5)
+        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, topk=50)
 
         # print(pred_region_idx_cal)
         pred_region = cal_poses[pred_region_idx_cal]
@@ -259,7 +259,7 @@ def draw_data(args, ori_err, new_err, uncertainty_set, mode='Translation'):
     plt.annotate(f'{ori_err.mean():.3f}', xy=(0.1, ori_err.mean()), textcoords="offset points", xytext=(0,3), ha='right', color='g')
     plt.legend()
     plt.tight_layout()
-    plt.savefig('/home/runyi/Project/TBCP6D/experiments/visualization/vis_conformal_t/'+args.data+'/'+args.sn+'_'+args.exp+'.png')
+    plt.savefig('/home/runyi/Project/TBCP6D/experiments/visualization/vis_conformal_rot/'+args.data+'/'+args.sn+'_'+args.exp+'.png')
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
@@ -304,7 +304,7 @@ if __name__ == '__main__':
     # test_set.pred_poses[:, :3] = (test_set.pred_poses[:, :3] - np.array(tmin)) / (np.array(tmax) - np.array(tmin))
 
     # calib non-conformity
-    icp = ICP(cal_poses, cal_pred_poses, mode='Trans')
+    icp = ICP(cal_poses, cal_pred_poses, mode='Rot')
     bingham_z = - np.linspace(0.0, 3.0, 4)[::-1]
     bingham_m = np.eye(4)
     BU = BinghamDistribution(bingham_m, bingham_z, {"norm_const_mode": "numerical"})
@@ -321,7 +321,7 @@ if __name__ == '__main__':
     random_prune_t_err = []
     num_effiect_samples = []
     
-    pred_data = get_pred_region(icp, dataloader, GU, (tmax, tmin))
+    pred_data = get_pred_region(icp, dataloader, BU, (tmax, tmin))
     # embed()
     # embed()
     valid_uncertainties = pred_data['uncertainties'][~torch.isnan(pred_data['uncertainties'])]
@@ -329,17 +329,18 @@ if __name__ == '__main__':
     pred_data['uncertainties'] = (pred_data['uncertainties'] - valid_uncertainties.min()) / (valid_uncertainties.max() - valid_uncertainties.min())
     ori_t_err = pred_data['Trans_Err'] 
     ori_r_err = pred_data['Rot_Err']
-    embed()
+    
     for uncertainty_set in uncertainty_sets:
         total_count = int(len(pred_data['uncertainties']) * uncertainty_set) - 1
         threshold = torch.sort(pred_data['uncertainties'])[0][total_count]
         mask = (pred_data['uncertainties'] <= threshold)
+        # print(mask.sum())
         # (err_trans * mask_trans).sum().item() / (mask_trans.sum().item() + 1e-9)
         mean_t_err.append((pred_data['Trans_Err'] * mask).sum() / (mask.sum() + 1e-9))
         mean_rot_err.append((pred_data['Rot_Err'] * mask).sum() / (mask.sum() + 1e-9))
         num_effiect_samples.append(mask.sum())
 
-    draw_data(args, ori_t_err, mean_t_err, uncertainty_sets, mode='Translation')
+    draw_data(args, ori_r_err, mean_rot_err, uncertainty_sets, mode='Rotation')
     
     
     #     p_values_rot = []
