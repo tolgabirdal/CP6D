@@ -175,7 +175,6 @@ class Inductive_Conformal_Predcition:
         
         
         if self.mode == "Rot":
-            
             new_pose_nc_scores = new_pose_nc_scores_rot
         elif self.mode == "Trans":
             new_pose_nc_scores = new_pose_nc_scores_trans
@@ -190,6 +189,8 @@ class Inductive_Conformal_Predcition:
         # Scale new_pose_nc_scores and self.nc_scores to [0, 1]
         # new_pose_nc_scores = (new_pose_nc_scores - new_pose_nc_scores.min()) / (new_pose_nc_scores.max() - new_pose_nc_scores.min())
         # self.nc_scores = (self.nc_scores - self.nc_scores.min()) / (self.nc_scores.max() - self.nc_scores.min())
+        
+        new_pose_nc_score = new_pose_nc_scores / new_pose_nc_scores.mean()
         
         for idx, new_nc_score in enumerate(new_pose_nc_scores):
             p_value = (self.nc_scores >= new_nc_score).float().mean()
