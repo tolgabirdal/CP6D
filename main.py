@@ -259,7 +259,8 @@ def draw_data(args, ori_err, new_err, uncertainty_set, mode='Translation'):
     plt.annotate(f'{ori_err.mean():.3f}', xy=(0.1, ori_err.mean()), textcoords="offset points", xytext=(0,3), ha='right', color='g')
     plt.legend()
     plt.tight_layout()
-    plt.savefig('/home/runyi/Project/TBCP6D/experiments/visualization/vis_conformal_t/'+args.data+'/'+args.sn+'_'+args.exp+'.png')
+    plt.show()
+    plt.savefig('./experiments/visualization/vis_conformal_t/'+args.data+'/'+args.sn+'_'+args.exp+'.png')
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
