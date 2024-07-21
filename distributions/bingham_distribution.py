@@ -10,7 +10,7 @@ import scipy.integrate as integrate
 import scipy.optimize
 import scipy.special
 import torch
-import torch_bingham
+# import torch_bingham
 import numpy as np
 import pandas as pd
 import sys

@@ -16,7 +16,7 @@ from skimage.io import imread
 import cv2
 # from Keypoint.ALIKED import aliked_kpts
 import torch.nn.functional as F
-import torch_bingham
+# import torch_bingham
 from IPython import embed
 from colmap.scripts.python.read_write_model import read_model, qvec2rotmat
 from colmap.scripts.python.read_write_dense import read_array
@@ -222,7 +222,7 @@ def get_pred_region(icp, test_data_loader, Un, norm):
         test_pred_poses.append(minibatch['est_pose'])
         # test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
         test_pose = minibatch['est_pose']
-        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, topk=5 kj)
+        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, topk=5)
 
         # print(pred_region_idx_cal)
         pred_region = cal_poses[pred_region_idx_cal]
