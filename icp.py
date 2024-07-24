@@ -89,9 +89,6 @@ def translation_err(est_pose, gt_pose):
     return posit_err
 
 
-
-
-    
 class Inductive_Conformal_Predcition:
     def __init__(self, gt, pred, mode, trans_norm=None, rate=None):
         """
@@ -139,6 +136,17 @@ class Inductive_Conformal_Predcition:
         }
         return self.non_conformity_scores
     
+    def compute_cal_distance(self):
+        trans_distances = []
+        rot_distances = []
+        for i in range(self.gt.shape[0]):
+            rot_dist = self.rot_err(self.gt_rot[i].repeat(self.gt.shape[0], 1), self.gt_rot).mean()
+            trans_dist = self.trans_err(self.gt_trans[i].repeat(self.gt.shape[0], 1), self.gt_trans).mean()
+            rot_distances.append(rot_dist)
+            trans_distances.append(trans_dist)
+        self.trans_distances = torch.tensor(trans_distances)
+        self.rot_distances = torch.tensor(rot_distances)
+    
     def compute_nc_scores(self):
         if self.non_conformity_scores == None:
             self.compute_non_conformity_scores()
@@ -163,6 +171,8 @@ class Inductive_Conformal_Predcition:
     def compute_p_value_from_calibration_poses(self, new_pose, topk=5):
         if self.nc_scores == None:
             self.compute_nc_scores()
+            self.compute_cal_distance()
+            self.nc_scores = self.nc_scores / self.trans_distances
         new_pose_q = new_pose[:, 3:]
         new_pose_t = new_pose[:, :3]
         if self.trans_norm is not None:
@@ -186,10 +196,11 @@ class Inductive_Conformal_Predcition:
         pred_region = []
         p_values = []
         
+        
         # Scale new_pose_nc_scores and self.nc_scores to [0, 1]
         new_pose_nc_scores = (new_pose_nc_scores - torch.quantile(new_pose_nc_scores, 0.1)) / (torch.quantile(new_pose_nc_scores, 0.9) - torch.quantile(new_pose_nc_scores, 0.1))
         self.nc_scores = (self.nc_scores - torch.quantile(self.nc_scores, 0.1)) / (torch.quantile(self.nc_scores, 0.9) - torch.quantile(self.nc_scores, 0.1))
-        
+
         # new_pose_nc_scores = new_pose_nc_scores / new_pose_nc_scores.mean()
         # embed()
         
@@ -201,7 +212,8 @@ class Inductive_Conformal_Predcition:
         p_values = np.array(p_values)
         
         # embed()
+        # print()
         # pred_region = np.argsort(p_values)[::-1][:topk]
         pred_region = np.where(p_values > 0.99)[0]
-        print("P-value Num: ", len(pred_region))
+        # print("P-values: ", p_values, "P-value Num: ", len(pred_region))
         return pred_region.tolist()
