@@ -14,7 +14,7 @@ from skimage.io import imread
 import cv2
 # from Keypoint.ALIKED import aliked_kpts
 import torch.nn.functional as F
-import torch_bingham
+# import torch_bingham
 from IPython import embed
 from colmap.scripts.python.read_write_model import read_model, qvec2rotmat
 from colmap.scripts.python.read_write_dense import read_array
@@ -365,9 +365,9 @@ if __name__ == '__main__':
             
         # Store to_plot_trans as CSV
         df_t = pd.DataFrame(to_plot_trans)
-        df_t.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_results_nc_score_norm_debug/{args.data}_trans.csv', index=False)
+        df_t.to_csv(f'/home/runyi/Project/TBCP6D/experiments/nc_score_norm/{args.data}_trans.csv', index=False)
         df_r = pd.DataFrame(to_plot_rot)
-        df_r.to_csv(f'/home/runyi/Project/TBCP6D/experiments/posenet_results_nc_score_norm_debug/{args.data}_rot.csv', index=False)
+        df_r.to_csv(f'/home/runyi/Project/TBCP6D/experiments/nc_score_norm/{args.data}_rot.csv', index=False)
 
         # ax_trans = axs[0, dataset_id]
         # for sn, data in to_plot_trans.items():
