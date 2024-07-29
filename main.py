@@ -222,7 +222,7 @@ def get_pred_region(icp, test_data_loader, Un, norm):
         test_pred_poses.append(minibatch['est_pose'])
         # test_R = compute_rotation_matrix_from_quaternion(test_q, n_flag=True).squeeze()
         test_pose = minibatch['est_pose']
-        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, topk=5)
+        pred_region_idx_cal = icp.compute_p_value_from_calibration_poses(test_pose, topk=15)
 
         # print(pred_region_idx_cal)
         pred_region = cal_poses[pred_region_idx_cal]
@@ -260,7 +260,7 @@ def draw_data(args, ori_err, new_err, uncertainty_set, mode='Translation'):
     plt.legend()
     plt.tight_layout()
     plt.show()
-    plt.savefig('./experiments/visualization/vis_conformal_t/'+args.data+'/'+args.sn+'_'+args.exp+'.png')
+    plt.savefig('./experiments/nc_score_norm/'+args.data+'/'+args.sn+'_'+args.exp+'.png')
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()

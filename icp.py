@@ -198,8 +198,8 @@ class Inductive_Conformal_Predcition:
         
         
         # Scale new_pose_nc_scores and self.nc_scores to [0, 1]
-        new_pose_nc_scores = (new_pose_nc_scores - torch.quantile(new_pose_nc_scores, 0.1)) / (torch.quantile(new_pose_nc_scores, 0.9) - torch.quantile(new_pose_nc_scores, 0.1))
-        self.nc_scores = (self.nc_scores - torch.quantile(self.nc_scores, 0.1)) / (torch.quantile(self.nc_scores, 0.9) - torch.quantile(self.nc_scores, 0.1))
+        # new_pose_nc_scores = (new_pose_nc_scores - torch.quantile(new_pose_nc_scores, 0.1)) / (torch.quantile(new_pose_nc_scores, 0.9) - torch.quantile(new_pose_nc_scores, 0.1))
+        # self.nc_scores = (self.nc_scores - torch.quantile(self.nc_scores, 0.1)) / (torch.quantile(self.nc_scores, 0.9) - torch.quantile(self.nc_scores, 0.1))
 
         # new_pose_nc_scores = new_pose_nc_scores / new_pose_nc_scores.mean()
         # embed()
@@ -213,7 +213,7 @@ class Inductive_Conformal_Predcition:
         
         # embed()
         # print()
-        # pred_region = np.argsort(p_values)[::-1][:topk]
-        pred_region = np.where(p_values > 0.99)[0]
+        pred_region = np.argsort(p_values)[::-1][:topk]
+        # pred_region = np.where(p_values > 0.99)[0]
         # print("P-values: ", p_values, "P-value Num: ", len(pred_region))
         return pred_region.tolist()
