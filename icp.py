@@ -172,7 +172,7 @@ class Inductive_Conformal_Predcition:
         if self.nc_scores == None:
             self.compute_nc_scores()
             self.compute_cal_distance()
-            self.nc_scores = self.nc_scores / self.trans_distances
+            # self.nc_scores = self.nc_scores / self.trans_distances
         new_pose_q = new_pose[:, 3:]
         new_pose_t = new_pose[:, :3]
         if self.trans_norm is not None:
@@ -209,6 +209,7 @@ class Inductive_Conformal_Predcition:
             # print("P-value: ", p_value)
             p_values.append(p_value)
         # Get topk p_values corredsponding indices
+        # embed()
         p_values = np.array(p_values)
         
         # embed()
