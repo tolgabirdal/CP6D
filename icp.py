@@ -90,7 +90,7 @@ def translation_err(est_pose, gt_pose):
 
 
 class Inductive_Conformal_Predcition:
-    def __init__(self, gt, pred, mode, trans_norm=None, rate=None):
+    def __init__(self, gt, pred, mode, rate=None):
         """
         Initialize the ICP_ROT class.
 
@@ -101,14 +101,7 @@ class Inductive_Conformal_Predcition:
                                 where n is the number of samples and m is the number of features.
         """
         super(Inductive_Conformal_Predcition, self).__init__()
-        if trans_norm is not None:
-            self.tmax = trans_norm[0]
-            self.tmin = trans_norm[1]
-            pred[:, :3] = (pred[:, :3] - self.tmin) / (self.tmax - self.tmin)
-            gt[:, :3] = (gt[:, :3] - self.tmin) / (self.tmax - self.tmin)
-            self.trans_norm = trans_norm
-        else:
-            self.trans_norm = None
+
         self.gt = gt
         self.pred = pred
         self.gt_rot = gt[:, 3:]
@@ -120,10 +113,17 @@ class Inductive_Conformal_Predcition:
         self.alpha = 0.05
         self.rot_err = rot_err_q
         self.trans_err = translation_err
+        if mode not in ["Trans", "Rot", "Combine"]:
+            raise ValueError("Invalid mode. Please choose from Trans, Rot and Combine")
+        
         self.mode = mode
         self.rate = rate
         
-        
+        if self.mode == "Combine" and rate is not None:
+            print("In Conformal mode of Combine, rate is set to ", rate)
+        else:
+            print("In Conformal mode of ", mode)
+            
         self.nc_scores = None
         self.non_conformity_scores = None
     

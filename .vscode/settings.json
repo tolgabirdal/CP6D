@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "/home/runyi/Project/TBCP6D/colmap/src/colmap/controllers"
+    "cmake.sourceDirectory": "/Users/runyi/School/Project/TBCP6D/colmap",
+    "cmake.ignoreCMakeListsMissing": true
 }

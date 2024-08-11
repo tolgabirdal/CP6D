@@ -16,10 +16,9 @@ from skimage.io import imread
 import cv2
 # from Keypoint.ALIKED import aliked_kpts
 import torch.nn.functional as F
+from sklearn import preprocessing
 # import torch_bingham
 from IPython import embed
-from colmap.scripts.python.read_write_model import read_model, qvec2rotmat
-from colmap.scripts.python.read_write_dense import read_array
 
 # compute the relative pose
 def normalize_vector( v):
@@ -264,15 +263,15 @@ def draw_data(args, ori_err, new_err, uncertainty_set, mode='Translation'):
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("-r", "--root_path", help="dataset root path, e.g. /home/runyi/Data/")
+    # arg_parser.add_argument("-r", "--root_path", help="dataset root path, e.g. /home/runyi/Data/")
     arg_parser.add_argument("-d", "--data", help="dataset, e.g. 7Scenes, PhotoTourism, CambridgeLandmarks")
     arg_parser.add_argument("-l", "--label_file", help="label files dir, /home/runyi/Project/TBCP6D/dataset/PhotoTourism/")
     arg_parser.add_argument("-s", "--sn", help="name of scenes e.g. chess, fire")
-    arg_parser.add_argument("-f", "--feature", help="if you need feature")
-    arg_parser.add_argument("--exp", default=None, help="name of experiment")
+    arg_parser.add_argument("-m", "--mode", help="mode of the experiment, e.g. tra, rot")
+    arg_parser.add_argument("-e", "--exp", default=None, help="name of experiment")
     args = arg_parser.parse_args()
     
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     if args.data == "7Scenes":
         args.sn = 'abs_7scenes_pose.csv_' + args.sn
@@ -288,32 +287,21 @@ if __name__ == '__main__':
         
     cal_labels_file = args.label_file + args.sn + final_cal
     test_labels_file = args.label_file + args.sn + final_test
-    # if args.feature is not None:
-    #     calibration_img_path, calibration_feature_t, calibration_feature_rot = load_npz_file(args.label_file+args.sn+'_val.csv_results.npz')
-    #     calibration_feature_t, calibration_feature_rot = torch.tensor(calibration_feature_t), torch.tensor(calibration_feature_rot)
 
-    data_path = args.root_path + args.data + '/'
-    cal_set = CameraPoseDatasetPred(data_path, cal_labels_file, load_npz=False)
-    test_set = CameraPoseDatasetPred(data_path, test_labels_file, load_npz=False)
-    cal_poses = torch.tensor(cal_set.poses)
-    cal_pred_poses = torch.tensor(cal_set.pred_poses)
-    tmean, tstd, tmax, tmin = torch.mean(cal_poses[:, :3], dim=0), torch.std(cal_poses[:, :3], dim=0), torch.max(cal_poses[:, :3], dim=0)[0], torch.min(cal_poses[:, :3], dim=0)[0]
-    cal_poses[:, :3] = (cal_poses[:, :3] - tmin) / (tmax - tmin)
-    cal_pred_poses[:, :3] = (cal_pred_poses[:, :3] - tmin) / (tmax - tmin)
-    trans_norm = [tmax, tmin]
-    test_set.poses[:, :3] = (test_set.poses[:, :3] - np.array(tmin)) / (np.array(tmax) - np.array(tmin))
-    test_set.pred_poses[:, :3] = (test_set.pred_poses[:, :3] - np.array(tmin)) / (np.array(tmax) - np.array(tmin))
-
+    # Get Calibration and Test Set  
+    cal_set = CameraPoseDatasetPred(cal_labels_file)
+    test_set = CameraPoseDatasetPred(test_labels_file)
+    cal_poses = cal_set.poses
+    cal_pred_poses = cal_set.pred_poses
+    
     # calib non-conformity
-    icp = ICP(cal_poses, cal_pred_poses, mode='Trans')
+    icp = ICP(cal_poses, cal_pred_poses, mode=args.mode)
     bingham_z = - np.linspace(0.0, 3.0, 4)[::-1]
     bingham_m = np.eye(4)
     BU = BinghamDistribution(bingham_m, bingham_z, {"norm_const_mode": "numerical"})
     GU = GaussianUncertainty(args.data)
 
-    dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1)
-    
-    
+    dataloader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=1) 
     uncertainty_sets = np.linspace(0.02, 1.0, 50)
     
     mean_rot_err = []
@@ -322,9 +310,7 @@ if __name__ == '__main__':
     random_prune_t_err = []
     num_effiect_samples = []
     
-    pred_data = get_pred_region(icp, dataloader, GU, (tmax, tmin))
-    # embed()
-    # embed()
+    pred_data = get_pred_region(icp, dataloader, GU)
     valid_uncertainties = pred_data['uncertainties'][~torch.isnan(pred_data['uncertainties'])]
     
     pred_data['uncertainties'] = (pred_data['uncertainties'] - valid_uncertainties.min()) / (valid_uncertainties.max() - valid_uncertainties.min())
@@ -343,51 +329,3 @@ if __name__ == '__main__':
 
     draw_data(args, ori_t_err, mean_t_err, uncertainty_sets, mode='Translation')
     
-    
-    #     p_values_rot = []
-    #     p_values_t = []
-
-
-    # embed()
-    #     print("Uncertainty Set: ", uncertainty_set, len(new_t_err))
-    #     num_effiect_samples.append(len(new_t_err))
-    #     np.random.seed(42)
-    #     ori_random_t_err = np.random.choice(ori_t_err, size=int(len(new_t_err)), replace=False)
-    #     mean_t_err.append(np.mean(new_t_err))
-    #     random_prune_t_err.append(np.mean(ori_random_t_err))
-    #     print("Uncertainty Set: ", uncertainty_set, "Mean Translation Error: ", np.mean(new_t_err), "Random Prune Translation Error: ", np.mean(ori_random_t_err), "Original Translation Error: ", np.mean(ori_t_err), "Total: ", len(ori_t_err))
-
-    # plt.figure(figsize=(10, 10))
-    # plt.subplot(2, 1, 1)
-    # plt.title(args.data + ": " + args.sn)
-    # plt.plot(uncertainty_sets, mean_t_err, 'o-', color='b', label='Conformal Translation Error')
-    # # plt.plot(uncertainty_sets, random_prune_t_err, 'x-', color='r', label='Random Prune Translation Error')
-    # plt.axhline(y=ori_t_err.mean(), color='g', linestyle='--', label='Original Translation Error')
-    # plt.xlabel('Uncertainty Level')
-    # plt.ylabel('Mean Translation Error')
-    # for i, txt in enumerate(mean_t_err):
-    #     plt.annotate(f'{txt:.3f}', (uncertainty_sets[i], mean_t_err[i]), textcoords="offset points", xytext=(0,3), ha='center')
-        
-    # plt.annotate(f'{ori_t_err.mean():.3f}', xy=(0.1, ori_t_err.mean()), textcoords="offset points", xytext=(0,3), ha='right', color='g')
-    # # plt.title('Mean Translation Error')
-    # # plt.legend()
-    # # plt.tight_layout()
-    # # plt.savefig('vis/TourismPhoto/real_conformal_t/'+args.sn+'_mean_t_err.png')
-
-    # plt.subplot(2, 1, 2)
-    # # Plot the length of new_t_err
-    # plt.plot(uncertainty_sets, num_effiect_samples, 'o-', color='m', label='Length of Valid Poses')
-    # plt.axhline(y=len(ori_t_err), color='g', linestyle='--', label='Total Samples')
-    # # Add labels and title
-    # plt.xlabel('Uncertainty Level')
-    # plt.ylabel('Num of Valid Predictions')
-    # for i, txt in enumerate(num_effiect_samples):
-    #     plt.annotate(f'{txt}', (uncertainty_sets[i], num_effiect_samples[i]), textcoords="offset points", xytext=(0,3), ha='center')
-    # plt.annotate(f'{len(ori_t_err)}', xy=(0.1, len(ori_t_err)), textcoords="offset points", xytext=(0,3), ha='right', color='g')
-    # # plt.title('Length of new_t_err')
-    # # Add legend
-    # plt.legend()
-    # # Adjust the layout
-    # plt.tight_layout()
-    # # Save the figure
-    # plt.savefig('vis_conformal_r/'+ args.data + '/' + args.sn+ '_' + args.exp + '.png')

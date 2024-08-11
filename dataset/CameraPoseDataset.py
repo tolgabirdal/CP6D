@@ -3,6 +3,9 @@ from torch.utils.data import Dataset
 import pandas as pd
 from os.path import join
 import numpy as np
+from nc_score import pose_err
+from sklearn import preprocessing
+import torch
 
 def standardize_translation_vectors(vectors):
     mean = np.mean(vectors, axis=0)
@@ -51,6 +54,7 @@ class CameraPoseDataset(Dataset):
         self.transform = data_transform
         self.load_img = load_img
 
+        
     def __len__(self):
         return self.dataset_size
 
@@ -80,15 +84,13 @@ class CameraPoseDatasetPred(Dataset):
         A class representing a dataset of images and their poses
     """
 
-    def __init__(self, dataset_path, labels_file, data_transform=None,
-                 equalize_scenes=False, load_img=True, load_npz=False):
+    def __init__(self, labels_file, data_transform=None,
+                 equalize_scenes=False, load_img=True):
         super(CameraPoseDatasetPred, self).__init__()
             
-        self.load_npz = load_npz
-        if self.load_npz == True:
-            _ , self.feature_t, self.feature_rot = load_npz_file(labels_file.replace('results.csv', 'results.npz'))
-        self.img_paths, self.poses, self.scenes, self.scenes_ids = read_labels_file(labels_file, dataset_path)
-        self.pred_poses = read_est_poses(labels_file)
+
+        self.img_paths, self.poses, self.scenes, self.scenes_ids = read_labels_file(labels_file)
+        self.est_poses = read_est_poses(labels_file)
         scene_to_poses = {}
         for i, scene_id in enumerate(self.scenes_ids):
             scene_to_poses[scene_id] = self.poses[self.scenes_ids == scene_id, :]
@@ -106,7 +108,11 @@ class CameraPoseDatasetPred(Dataset):
             # gap of each scene to maximum / # of added fake positions
             self.scene_prob_selection = [ (max_samples_in_scene-len(self.scenes_sample_indices[i]))/num_added_positions for i in range(self.num_scenes) ]
         self.transform = data_transform
-        self.load_img = load_img
+        self.pose_err = pose_err(torch.tensor(self.poses), torch.tensor(self.est_poses))
+        self.trans_err, self.rot_err = self.pose_err[0].numpy(), self.pose_err[1].numpy()
+        # self.translation, self.rotation, self.est_translation, self.est_rotation = self.poses[:, :3], self.poses[:, 3:], self.est_poses[:, :3], self.est_poses[:, 3:]
+            
+        # self.load_img = load_img
         # self.imgs = []
         # for i in range(self.dataset_size):
         #     img = imread(self.img_paths[i])
@@ -122,30 +128,19 @@ class CameraPoseDatasetPred(Dataset):
             sampled_scene_idx = np.random.choice(range(self.num_scenes), p=self.scene_prob_selection)
             idx = np.random.choice(self.scenes_sample_indices[sampled_scene_idx])
 
-
         pose = self.poses[idx]
         est_pose = self.pred_poses[idx]
         scene = self.scenes_ids[idx]
-        img = imread(self.img_paths[idx])
-        if self.load_npz == True:
-            feature_t = self.feature_t[idx]
-            feature_rot = self.feature_rot[idx]
-        if self.transform and img is not None:
-            img = self.transform(img)
-        if img is not None:
-            if self.load_npz == False:
-                sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose, 'img_path': self.img_paths[idx]}
-            else:
-                sample = {'img': img, 'pose': pose, 'scene': scene, 'est_pose': est_pose, 'feature_t': feature_t, 'feature_rot': feature_rot, 'img_path': self.img_paths[idx]}
-        else:
-            sample = {'pose': pose, 'scene': scene, 'est_pose': est_pose}
-
+        trans_err = self.trans_err[idx]
+        rot_err = self.rot_err[idx]
+        # img = imread(self.img_paths[idx])
+        sample = {'pose': pose, 'scene': scene, 'est_pose': est_pose, 'img_path': self.img_paths[idx], 'trans_err': trans_err, 'rot_err': rot_err}
         return sample
 
 
-def read_labels_file(labels_file, dataset_path):
+def read_labels_file(labels_file):
     df = pd.read_csv(labels_file)
-    imgs_paths = [join(dataset_path, path) for path in df['img_path'].values]
+    imgs_paths = [path for path in df['img_path'].values]
     scenes = df['scene'].values
     scene_unique_names = np.unique(scenes)
     scene_name_to_id = dict(zip(scene_unique_names, list(range(len(scene_unique_names)))))
